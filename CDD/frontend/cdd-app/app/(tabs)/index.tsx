@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useLayoutEffect } from 'react';
 import {
   View,
   Text,
@@ -7,7 +7,6 @@ import {
   Image,
   SafeAreaView,
   ScrollView,
-  TouchableOpacity,
 } from 'react-native';
 import * as Location from 'expo-location';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -15,59 +14,77 @@ import { getScanLocations } from '@/utils/api';
 import styles from '../styles/index.styles';
 import DiseaseMap from '../../components/DiseaseMap';
 import AnalyticsPanel from '../../components/AnalyticsPanel';
-import UserRegistration from '../UserRegistration'; // Adjust path if needed
-import { router } from 'expo-router';
+import UserRegistration from '../UserRegistration';
 import { useNavigation } from 'expo-router';
-import { useLayoutEffect } from 'react';
-
-// Disease color codes
-const diseaseColors: Record<string, string> = {
-  Newcastle: '#4ECDC4',
-  Salmo: '#FFD93D',
-  Cocci: '#FF6B6B',
-  Healthy: '#95E1D3',
-  Unknown: '#888',
-};
 
 export default function HomeScreen() {
-  const [locations, setLocations] = useState<any[]>([]);
+  const [useRegistered, setUseRegistered] = useState(false);
+  const [userInfo, setUserInfo] = useState<any>(null);
   const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [registeredCoords, setRegisteredCoords] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [locations, setLocations] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showRegistration, setShowRegistration] = useState(true);
 
-  // Placeholder user data — update with real user later
-  const user = {
-    name: 'John Doe',
-    avatar: 'https://i.pravatar.cc/100',
+  const navigation = useNavigation();
+
+  const convertLocationToCoords = async (locationString: string) => {
+    try {
+      const geocode = await Location.geocodeAsync(locationString);
+      if (geocode.length > 0) {
+        const coords = {
+          latitude: geocode[0].latitude,
+          longitude: geocode[0].longitude,
+        };
+        setRegisteredCoords(coords);
+      }
+    } catch (error) {
+      console.warn('Failed to geocode user location', error);
+    }
   };
 
-  const diseaseCounts: Record<string, number> = locations.reduce((acc, loc) => {
-    const key = loc.disease || 'Unknown';
-    acc[key] = (acc[key] || 0) + 1;
-    return acc;
-  }, {} as Record<string, number>);
+  useEffect(() => {
+    if (useRegistered && registeredCoords) {
+      setUserLocation(registeredCoords);
+    } else if (!useRegistered) {
+      Location.getCurrentPositionAsync({}).then((loc) => {
+        setUserLocation({
+          latitude: loc.coords.latitude,
+          longitude: loc.coords.longitude,
+        });
+      });
+    }
+  }, [useRegistered, registeredCoords]);
 
-  const navigation = useNavigation();
+  useEffect(() => {
+    const loadUser = async () => {
+      const data = await AsyncStorage.getItem('userInfo');
+      if (data) {
+        const parsed = JSON.parse(data);
+        setUserInfo(parsed);
+        convertLocationToCoords(parsed.location);
+        setShowRegistration(false);
+      } else {
+        setShowRegistration(true);
+      }
+    };
+    loadUser();
+  }, []);
 
   useLayoutEffect(() => {
     navigation.setOptions({
-      headerShown: !showRegistration, // Hide header only during registration
+      headerShown: false,
       tabBarStyle: showRegistration ? { display: 'none' } : undefined,
     });
   }, [showRegistration]);
 
-
-  useEffect(() => {
-    const checkUser = async () => {
-      const storedUser = await AsyncStorage.getItem('userInfo');
-      if (storedUser) {
-        setShowRegistration(false);
-      }
-    };
-    checkUser();
-  }, []);
-
-  const handleRegistrationComplete = () => {
+  const handleRegistrationComplete = async () => {
+    const data = await AsyncStorage.getItem('userInfo');
+    if (data) {
+      const parsed = JSON.parse(data);
+      setUserInfo(parsed);
+      convertLocationToCoords(parsed.location);
+    }
     setShowRegistration(false);
   };
 
@@ -81,11 +98,13 @@ export default function HomeScreen() {
           return;
         }
 
-        const currentLocation = await Location.getCurrentPositionAsync({});
-        setUserLocation({
-          latitude: currentLocation.coords.latitude,
-          longitude: currentLocation.coords.longitude,
-        });
+        if (!userLocation) {
+          const currentLocation = await Location.getCurrentPositionAsync({});
+          setUserLocation({
+            latitude: currentLocation.coords.latitude,
+            longitude: currentLocation.coords.longitude,
+          });
+        }
 
         const response = await getScanLocations();
         setLocations(response.data || []);
@@ -118,18 +137,25 @@ export default function HomeScreen() {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#121212' }}>
       {/* User Header */}
-      <View style={styles.profileContainer}>
-        <Image source={{ uri: user.avatar }} style={styles.avatar} />
-        <View>
-          <Text style={styles.welcome}>Welcome back,</Text>
-          <Text style={styles.username}>{user.name}</Text>
+      {userInfo && (
+        <View style={styles.userHeader}>
+          <Image source={{ uri: userInfo.profileImage }} style={styles.avatar} />
+          <View>
+            <Text style={styles.welcomeText}>Welcome, {userInfo.fullName}</Text>
+            <Text style={styles.locationText}>{userInfo.location}</Text>
+          </View>
         </View>
-      </View>
+      )}
 
       <ScrollView contentContainerStyle={{ paddingBottom: 20 }}>
         {/* Map */}
-        <View style={{ height: 300 }}>
-          <DiseaseMap locations={locations} userLocation={userLocation} />
+        <View style={{ height: 320, marginTop: 10 }}>
+          <DiseaseMap
+            userLocation={userLocation}
+            locations={locations}
+            useRegistered={useRegistered}
+            onToggleLocation={() => setUseRegistered(!useRegistered)}
+          />
         </View>
 
         {/* Analytics */}

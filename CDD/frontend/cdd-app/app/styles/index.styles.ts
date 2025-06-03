@@ -14,12 +14,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#121212',
     zIndex: 1,
   },
-  avatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    marginRight: 12,
-  },
   welcome: {
     fontSize: 14,
     color: '#6b7280',
@@ -38,12 +32,6 @@ const styles = StyleSheet.create({
   },
   screen: {
   flex: 1,
-  backgroundColor: '#121212',
-},
-loadingContainer: {
-  flex: 1,
-  justifyContent: 'center',
-  alignItems: 'center',
   backgroundColor: '#121212',
 },
 locationMap: {
@@ -85,6 +73,45 @@ analyticsCount: {
   fontWeight: 'bold',
   color: '#333',
 },
+scrollContent: {
+    padding: 20,
+  },
+  loadingContainer: {
+    flex: 1,
+    backgroundColor: '#121212',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  userHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 50,
+    marginBottom: 20,
+  },
+  avatar: {
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+    marginRight: 15,
+  },
+  userDetails: {
+    flex: 1,
+  },
+  welcomeText: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  locationText: {
+    color: '#ccc',
+    fontSize: 14,
+  },
+  mapContainer: {
+    height: 400,
+    borderRadius: 12,
+    overflow: 'hidden',
+    marginTop: 10,
+  },
 
 
 });

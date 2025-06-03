@@ -1,0 +1,32 @@
+{
+  "regions": [
+    {
+      "name": "Region I",
+      "provinces": [
+        {
+          "name": "Ilocos Norte",
+          "municipalities": [
+            {
+              "name": "Laoag City",
+              "barangays": ["Barangay 1", "Barangay 2", "Barangay 3"]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Region II",
+      "provinces": [
+        {
+          "name": "Cagayan",
+          "municipalities": [
+            {
+              "name": "Tuguegarao City",
+              "barangays": ["Barangay A", "Barangay B"]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
