@@ -18,6 +18,17 @@ import * as Location from 'expo-location';
 import { Picker } from '@react-native-picker/picker';
 import locationData from '../assets/locations.json';
 
+type LocationData = {
+  name: string;
+  provinces: {
+    name: string;
+    municipalities: {
+      name: string;
+      barangays: string[];
+    }[];
+  }[];
+};
+
 const UserRegistration = ({ onComplete }: { onComplete: () => void }) => {
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
@@ -68,33 +79,42 @@ const UserRegistration = ({ onComplete }: { onComplete: () => void }) => {
   };
 
   useEffect(() => {
-    const found = locationData.regions.find((r) => r.name === region);
-    if (found) {
-      setProvinces(found.provinces);
-      setProvince('');
-      setMunicipality('');
-      setBarangay('');
-      setMunicipalities([]);
-      setBarangays([]);
+    if (!region) return;
+    const foundRegion = locationData.regions.find((r) => r.name === region);
+    if (foundRegion) {
+      setProvinces(foundRegion.provinces);
+    } else {
+      setProvinces([]);
     }
+    setProvince('');
+    setMunicipality('');
+    setBarangay('');
+    setMunicipalities([]);
+    setBarangays([]);
   }, [region]);
 
   useEffect(() => {
-    const found = provinces.find((p) => p.name === province);
-    if (found) {
-      setMunicipalities(found.municipalities);
-      setMunicipality('');
-      setBarangay('');
-      setBarangays([]);
+    if (!province) return;
+    const foundProvince = provinces.find((p) => p.name === province);
+    if (foundProvince) {
+      setMunicipalities(foundProvince.municipalities);
+    } else {
+      setMunicipalities([]);
     }
+    setMunicipality('');
+    setBarangay('');
+    setBarangays([]);
   }, [province]);
 
   useEffect(() => {
-    const found = municipalities.find((m) => m.name === municipality);
-    if (found) {
-      setBarangays(found.barangays);
-      setBarangay('');
+    if (!municipality) return;
+    const foundMunicipality = municipalities.find((m) => m.name === municipality);
+    if (foundMunicipality) {
+      setBarangays(foundMunicipality.barangays);
+    } else {
+      setBarangays([]);
     }
+    setBarangay('');
   }, [municipality]);
 
   const handleImagePick = async () => {
@@ -125,16 +145,11 @@ const UserRegistration = ({ onComplete }: { onComplete: () => void }) => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={{ flex: 1 }}
-      >
-        {/* Header */}
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
         <View style={styles.header}>
           <Text style={styles.title}>User Registration</Text>
         </View>
 
-        {/* Scrollable Form */}
         <ScrollView contentContainerStyle={styles.formContainer}>
           <TouchableOpacity onPress={handleImagePick} style={styles.imagePicker}>
             {profileImage ? (
@@ -151,7 +166,6 @@ const UserRegistration = ({ onComplete }: { onComplete: () => void }) => {
             value={fullName}
             onChangeText={setFullName}
           />
-
           <TextInput
             style={styles.input}
             placeholder="Email"
@@ -160,7 +174,6 @@ const UserRegistration = ({ onComplete }: { onComplete: () => void }) => {
             value={email}
             onChangeText={setEmail}
           />
-
           <TextInput
             style={styles.input}
             placeholder="Contact Number"
@@ -175,6 +188,7 @@ const UserRegistration = ({ onComplete }: { onComplete: () => void }) => {
             selectedValue={region}
             onValueChange={(value) => setRegion(value)}
             style={styles.picker}
+            dropdownIconColor="#fff"
           >
             <Picker.Item label="Select Region" value="" />
             {locationData.regions.map((r) => (
@@ -187,6 +201,7 @@ const UserRegistration = ({ onComplete }: { onComplete: () => void }) => {
             selectedValue={province}
             onValueChange={(value) => setProvince(value)}
             style={styles.picker}
+            dropdownIconColor="#fff"
           >
             <Picker.Item label="Select Province" value="" />
             {provinces.map((p) => (
@@ -199,6 +214,7 @@ const UserRegistration = ({ onComplete }: { onComplete: () => void }) => {
             selectedValue={municipality}
             onValueChange={(value) => setMunicipality(value)}
             style={styles.picker}
+            dropdownIconColor="#fff"
           >
             <Picker.Item label="Select Municipality" value="" />
             {municipalities.map((m) => (
@@ -211,6 +227,7 @@ const UserRegistration = ({ onComplete }: { onComplete: () => void }) => {
             selectedValue={barangay}
             onValueChange={(value) => setBarangay(value)}
             style={styles.picker}
+            dropdownIconColor="#fff"
           >
             <Picker.Item label="Select Barangay" value="" />
             {barangays.map((b) => (
@@ -219,7 +236,6 @@ const UserRegistration = ({ onComplete }: { onComplete: () => void }) => {
           </Picker>
         </ScrollView>
 
-        {/* Fixed Submit Button */}
         <View style={styles.footer}>
           <TouchableOpacity onPress={handleSubmit} style={styles.submitButton}>
             <Text style={styles.submitText}>Submit</Text>
@@ -233,7 +249,7 @@ const UserRegistration = ({ onComplete }: { onComplete: () => void }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000000',
+    backgroundColor: '#000',
     marginTop: 20,
     marginBottom: 100,
   },
@@ -251,7 +267,7 @@ const styles = StyleSheet.create({
   formContainer: {
     paddingHorizontal: 20,
     paddingTop: 20,
-    paddingBottom: 100, // leave space for submit button
+    paddingBottom: 100,
   },
   input: {
     backgroundColor: '#1e1e1e',
