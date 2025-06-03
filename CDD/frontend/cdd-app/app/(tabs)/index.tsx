@@ -15,6 +15,8 @@ import styles from '../styles/index.styles';
 import DiseaseMap from '../../components/DiseaseMap';
 import AnalyticsPanel from '../../components/AnalyticsPanel';
 import UserRegistration from '../UserRegistration';
+import DiseaseAlertBanner from '../../components/DiseasAlertBanner';
+import LatestScanList from '../../components/LatestScanList';
 import { useNavigation } from 'expo-router';
 
 export default function HomeScreen() {
@@ -160,6 +162,14 @@ export default function HomeScreen() {
 
         {/* Analytics */}
         <AnalyticsPanel locations={locations} useDummyData={true} />
+        
+        <DiseaseAlertBanner userLocation={userLocation} locations={locations} />
+        
+        <View style={{ flex: 1, backgroundColor: '#111827', paddingTop: 20 }}>
+          <Text style={{ color: 'white', fontSize: 18, fontWeight: 'bold', marginLeft: 10 }}>Latest Scan Summary</Text>
+          <LatestScanList />
+        </View>
+      
       </ScrollView>
     </SafeAreaView>
   );
