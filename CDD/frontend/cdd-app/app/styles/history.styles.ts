@@ -1,4 +1,6 @@
-import { StyleSheet } from 'react-native';
+import { StyleSheet, Dimensions } from 'react-native';
+
+const { height } = Dimensions.get('window');
 
 const styles = StyleSheet.create({
   container: {
@@ -10,13 +12,18 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 22,
     fontWeight: 'bold',
-    marginBottom: 12,
+  },
+  map: {
+    width: '100%',
+    height: height * 0.35,
+    borderRadius: 10,
+    marginTop: 8,
   },
   item: {
     backgroundColor: '#f0f0f0',
     padding: 12,
     borderRadius: 8,
-    marginBottom: 8,
+    marginVertical: 6,
   },
   disease: {
     fontSize: 16,

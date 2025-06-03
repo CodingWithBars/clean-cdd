@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, Button, Image, Alert, ActivityIndicator } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
-import styles from './styles/scanner.styles';
+import styles from '../styles/scanner.styles';
 import { uploadScan } from '@/utils/api';
 import { useRouter } from 'expo-router';
 

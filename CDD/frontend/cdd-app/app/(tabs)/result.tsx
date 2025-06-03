@@ -1,7 +1,7 @@
 import { View, Text } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
 import { useLocalSearchParams } from 'expo-router';
-import styles from './styles/result.styes';
+import styles from '../styles/result.styes';
 
 export default function ResultScreen() {
   const { disease, probability, latitude, longitude } = useLocalSearchParams<{

@@ -1,54 +1,74 @@
 import React, { useEffect, useState } from 'react';
-import { View, ActivityIndicator } from 'react-native';
-import MapView, { Marker } from 'react-native-maps';
+import { View, Text, ActivityIndicator, Alert, Image, SafeAreaView } from 'react-native';
+import * as Location from 'expo-location';
 import { getScanLocations } from '@/utils/api';
-import styles from './styles/index.styles';
+import styles from '../styles/index.styles';
+import DiseaseMap from '../../components/DiseaseMap';
 
 export default function HomeScreen() {
-  const [locations, setLocations] = useState<any[]>([]);
+  const [locations, setLocations] = useState([]);
+  const [userLocation, setUserLocation] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  // Optional: Replace with real user info from auth context if available
+  const user = {
+    name: 'John Doe',
+    avatar: 'https://i.pravatar.cc/100', // Placeholder avatar
+  };
+
   useEffect(() => {
-    const fetchLocations = async () => {
+    const fetchData = async () => {
       try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== 'granted') {
+          Alert.alert('Permission denied', 'Location access is required.');
+          setLoading(false);
+          return;
+        }
+
+        const currentLocation = await Location.getCurrentPositionAsync({});
+        setUserLocation({
+          latitude: currentLocation.coords.latitude,
+          longitude: currentLocation.coords.longitude,
+        });
+
         const response = await getScanLocations();
-        setLocations(response.data);
-      } catch (err) {
-        console.error('Failed to fetch scan locations:', err);
+        setLocations(response.data || []);
+      } catch (error) {
+        console.error('Error fetching location or scan data:', error);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchLocations();
-    const interval = setInterval(fetchLocations, 10000);
+    fetchData();
+    const interval = setInterval(fetchData, 10000);
     return () => clearInterval(interval);
   }, []);
 
   if (loading) {
-    return <ActivityIndicator style={styles.loader} size="large" />;
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#00BFFF" />
+      </View>
+    );
   }
 
   return (
-    <View style={styles.container}>
-      <MapView
-        style={styles.map}
-        initialRegion={{
-          latitude: locations[0]?.latitude || 14.5995,
-          longitude: locations[0]?.longitude || 120.9842,
-          latitudeDelta: 5,
-          longitudeDelta: 5,
-        }}
-      >
-        {locations.map((loc, i) => (
-          <Marker
-            key={i}
-            coordinate={{ latitude: loc.latitude, longitude: loc.longitude }}
-            title={loc.disease}
-            description={`Confidence: ${(loc.probability * 100).toFixed(1)}%`}
-          />
-        ))}
-      </MapView>
-    </View>
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#f9fafb' }}>
+      {/* User Profile Header */}
+      <View style={styles.profileContainer}>
+        <Image source={{ uri: user.avatar }} style={styles.avatar} />
+        <View>
+          <Text style={styles.welcome}>Welcome back,</Text>
+          <Text style={styles.username}>{user.name}</Text>
+        </View>
+      </View>
+
+      {/* Disease Map Below */}
+      <View style={{ flex: 1 }}>
+        <DiseaseMap locations={locations} userLocation={userLocation} />
+      </View>
+    </SafeAreaView>
   );
 }

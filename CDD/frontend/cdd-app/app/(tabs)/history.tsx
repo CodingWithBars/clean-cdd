@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
-import { View, Text, FlatList, ActivityIndicator } from 'react-native';
-import styles from './styles/history.styles';
+import { View, Text, FlatList, ActivityIndicator, Dimensions } from 'react-native';
+import MapView, { Marker } from 'react-native-maps';
+import styles from '../styles/history.styles';
 import { getScanHistory } from '@/utils/api';
 
 type Scan = {
@@ -19,9 +20,9 @@ export default function HistoryScreen() {
     const loadScans = async () => {
       try {
         const res = await getScanHistory();
-        setScans(res.data.reverse()); // latest first
+        setScans(res.data.reverse());
       } catch (err) {
-        console.error('Failed to load history:', err);
+        console.error('Failed to load scan history:', err);
       } finally {
         setLoading(false);
       }
@@ -30,13 +31,39 @@ export default function HistoryScreen() {
     loadScans();
   }, []);
 
-  if (loading) {
-    return <ActivityIndicator style={{ marginTop: 50 }} size="large" />;
-  }
+  if (loading) return <ActivityIndicator style={{ marginTop: 50 }} size="large" />;
+
+  const initialRegion = scans.length > 0
+    ? {
+        latitude: scans[0].latitude,
+        longitude: scans[0].longitude,
+        latitudeDelta: 0.2,
+        longitudeDelta: 0.2,
+      }
+    : {
+        latitude: 0,
+        longitude: 0,
+        latitudeDelta: 30,
+        longitudeDelta: 30,
+      };
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Scan History</Text>
+      <Text style={styles.title}>All Scan Locations</Text>
+
+      <MapView style={styles.map} initialRegion={initialRegion}>
+        {scans.map((scan, idx) => (
+          <Marker
+            key={idx}
+            coordinate={{
+              latitude: scan.latitude,
+              longitude: scan.longitude,
+            }}
+            title={scan.disease}
+            description={`Scanned: ${new Date(scan.timestamp).toLocaleString()}`}
+          />
+        ))}
+      </MapView>
 
       <FlatList
         data={scans}
@@ -49,6 +76,7 @@ export default function HistoryScreen() {
             <Text>📍 {item.latitude.toFixed(4)}, {item.longitude.toFixed(4)}</Text>
           </View>
         )}
+        style={{ marginTop: 12 }}
       />
     </View>
   );
