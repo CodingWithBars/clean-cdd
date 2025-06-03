@@ -3,44 +3,48 @@ import {
   View,
   Text,
   TextInput,
-  Alert,
-  SafeAreaView,
-  KeyboardAvoidingView,
-  Platform,
-  Image,
   TouchableOpacity,
   ScrollView,
+  Image,
   StyleSheet,
 } from 'react-native';
+import { launchImageLibraryAsync, MediaTypeOptions } from 'expo-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as ImagePicker from 'expo-image-picker';
-import * as Location from 'expo-location';
 import { Picker } from '@react-native-picker/picker';
-import locationData from '../assets/locations.json';
+import * as FileSystem from 'expo-file-system';
+import { v4 as uuidv4 } from 'uuid';
 
-type LocationData = {
-  name: string;
-  provinces: {
-    name: string;
-    municipalities: {
-      name: string;
-      barangays: string[];
-    }[];
-  }[];
+import locationData from '../assets/locations.json';
+import { supabase } from '../lib/supabase';
+
+const regionInfo = locationData.region;
+
+const getMimeType = (uri: string): string => {
+  const ext = uri.split('.').pop()?.toLowerCase();
+  switch (ext) {
+    case 'jpg':
+    case 'jpeg':
+      return 'image/jpeg';
+    case 'png':
+      return 'image/png';
+    case 'gif':
+      return 'image/gif';
+    case 'webp':
+      return 'image/webp';
+    default:
+      return 'application/octet-stream';
+  }
 };
 
 const UserRegistration = ({ onComplete }: { onComplete: () => void }) => {
-  const [fullName, setFullName] = useState('');
-  const [email, setEmail] = useState('');
+  const [name, setName] = useState('');
   const [contact, setContact] = useState('');
-  const [profileImage, setProfileImage] = useState<string | null>(null);
+  const [email, setEmail] = useState('');
+  const [imageUri, setImageUri] = useState('');
 
-  const [region, setRegion] = useState('');
   const [province, setProvince] = useState('');
   const [municipality, setMunicipality] = useState('');
   const [barangay, setBarangay] = useState('');
-
-  const [loading, setLoading] = useState(true);
 
   const [provinces, setProvinces] = useState<any[]>([]);
   const [municipalities, setMunicipalities] = useState<any[]>([]);
@@ -52,197 +56,198 @@ const UserRegistration = ({ onComplete }: { onComplete: () => void }) => {
       if (storedUser) {
         onComplete();
       } else {
-        setLoading(false);
-        detectRegionFromGPS();
+        setProvinces(regionInfo.provinces);
       }
     };
     checkUser();
   }, []);
 
-  const detectRegionFromGPS = async () => {
-    try {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') return;
-
-      const loc = await Location.getCurrentPositionAsync({});
-      const reverse = await Location.reverseGeocodeAsync(loc.coords);
-      const userRegion = reverse[0]?.region || '';
-
-      const matchedRegion = locationData.regions.find((r) => r.name === userRegion);
-      if (matchedRegion) {
-        setRegion(matchedRegion.name);
-        setProvinces(matchedRegion.provinces);
-      }
-    } catch (err) {
-      console.warn('GPS location detection failed');
-    }
-  };
-
-  useEffect(() => {
-    if (!region) return;
-    const foundRegion = locationData.regions.find((r) => r.name === region);
-    if (foundRegion) {
-      setProvinces(foundRegion.provinces);
-    } else {
-      setProvinces([]);
-    }
-    setProvince('');
-    setMunicipality('');
-    setBarangay('');
-    setMunicipalities([]);
-    setBarangays([]);
-  }, [region]);
-
-  useEffect(() => {
-    if (!province) return;
-    const foundProvince = provinces.find((p) => p.name === province);
-    if (foundProvince) {
-      setMunicipalities(foundProvince.municipalities);
-    } else {
-      setMunicipalities([]);
-    }
-    setMunicipality('');
-    setBarangay('');
-    setBarangays([]);
-  }, [province]);
-
-  useEffect(() => {
-    if (!municipality) return;
-    const foundMunicipality = municipalities.find((m) => m.name === municipality);
-    if (foundMunicipality) {
-      setBarangays(foundMunicipality.barangays);
-    } else {
-      setBarangays([]);
-    }
-    setBarangay('');
-  }, [municipality]);
-
-  const handleImagePick = async () => {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      quality: 0.5,
+  const pickImage = async () => {
+    const result = await launchImageLibraryAsync({
+      mediaTypes: MediaTypeOptions.Images,
       allowsEditing: true,
+      aspect: [1, 1],
+      quality: 1,
     });
 
-    if (!result.canceled && result.assets.length > 0) {
-      setProfileImage(result.assets[0].uri);
+    if (!result.canceled && result.assets?.length > 0) {
+      setImageUri(result.assets[0].uri);
     }
   };
 
-  const handleSubmit = async () => {
-    if (!fullName || !email || !contact || !region || !province || !municipality || !barangay) {
-      Alert.alert('Missing Info', 'Please fill in all fields');
-      return;
+  const handleProvinceChange = (value: string) => {
+    setProvince(value);
+    const selectedProvince = provinces.find((p) => p.name === value);
+    if (selectedProvince) {
+      setMunicipalities(selectedProvince.municipalities);
+      setMunicipality('');
+      setBarangay('');
+      setBarangays([]);
+    }
+  };
+
+  const handleMunicipalityChange = (value: string) => {
+    setMunicipality(value);
+    const selectedMunicipality = municipalities.find((m) => m.name === value);
+    if (selectedMunicipality) {
+      setBarangays(selectedMunicipality.barangays);
+      setBarangay('');
+    }
+  };
+
+  const handleRegister = async () => {
+    let imageUrl = '';
+
+    if (imageUri) {
+      try {
+        const fileExt = imageUri.split('.').pop();
+        const fileName = `${uuidv4()}.${fileExt}`;
+        const mimeType = getMimeType(imageUri);
+
+        const fileData = await FileSystem.readAsStringAsync(imageUri, {
+          encoding: FileSystem.EncodingType.Base64,
+        });
+
+        const { error: uploadError } = await supabase.storage
+          .from('profile-images')
+          .upload(`public/${fileName}`, fileData, {
+            contentType: mimeType,
+            upsert: true,
+          });
+
+        if (uploadError) {
+          console.error('Upload error:', uploadError);
+          return;
+        }
+
+        const { data: publicUrlData } = supabase
+          .storage
+          .from('profile-images')
+          .getPublicUrl(`public/${fileName}`);
+
+        imageUrl = publicUrlData.publicUrl;
+      } catch (error) {
+        console.error('Image upload failed:', error);
+        return;
+      }
     }
 
-    const location = `${barangay}, ${municipality}, ${province}, ${region}`;
-    const userInfo = { fullName, email, contact, profileImage, location };
+    const userInfo = {
+      name,
+      contact,
+      email,
+      imageUri: imageUrl,
+      region: regionInfo.name,
+      province,
+      municipality,
+      barangay,
+    };
+
     await AsyncStorage.setItem('userInfo', JSON.stringify(userInfo));
     onComplete();
   };
 
-  if (loading) return null;
-
   return (
-    <SafeAreaView style={styles.container}>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
-        <View style={styles.header}>
-          <Text style={styles.title}>User Registration</Text>
-        </View>
+    <ScrollView style={styles.container}>
+      <View style={styles.header}>
+        <Text style={styles.title}>User Registration</Text>
+      </View>
 
-        <ScrollView contentContainerStyle={styles.formContainer}>
-          <TouchableOpacity onPress={handleImagePick} style={styles.imagePicker}>
-            {profileImage ? (
-              <Image source={{ uri: profileImage }} style={styles.avatar} />
-            ) : (
-              <Text style={styles.imageText}>Tap to upload profile image</Text>
-            )}
-          </TouchableOpacity>
+      <View style={styles.formContainer}>
+        <TouchableOpacity onPress={pickImage} style={styles.imagePicker}>
+          {imageUri ? (
+            <Image source={{ uri: imageUri }} style={styles.avatar} />
+          ) : (
+            <Text style={styles.imageText}>Pick Profile Image</Text>
+          )}
+        </TouchableOpacity>
 
-          <TextInput
-            style={styles.input}
-            placeholder="Full Name"
-            placeholderTextColor="#888"
-            value={fullName}
-            onChangeText={setFullName}
-          />
-          <TextInput
-            style={styles.input}
-            placeholder="Email"
-            placeholderTextColor="#888"
-            keyboardType="email-address"
-            value={email}
-            onChangeText={setEmail}
-          />
-          <TextInput
-            style={styles.input}
-            placeholder="Contact Number"
-            placeholderTextColor="#888"
-            keyboardType="phone-pad"
-            value={contact}
-            onChangeText={setContact}
-          />
+        <TextInput
+          style={styles.input}
+          placeholder="Full Name"
+          placeholderTextColor="#aaa"
+          value={name}
+          onChangeText={setName}
+        />
+        <TextInput
+          style={styles.input}
+          placeholder="Contact Number"
+          placeholderTextColor="#aaa"
+          keyboardType="phone-pad"
+          value={contact}
+          onChangeText={setContact}
+        />
+        <TextInput
+          style={styles.input}
+          placeholder="Email Address"
+          placeholderTextColor="#aaa"
+          keyboardType="email-address"
+          value={email}
+          onChangeText={setEmail}
+        />
 
-          <Text style={styles.label}>Region</Text>
-          <Picker
-            selectedValue={region}
-            onValueChange={(value) => setRegion(value)}
-            style={styles.picker}
-            dropdownIconColor="#fff"
-          >
-            <Picker.Item label="Select Region" value="" />
-            {locationData.regions.map((r) => (
-              <Picker.Item key={r.name} label={r.name} value={r.name} />
-            ))}
-          </Picker>
-
-          <Text style={styles.label}>Province</Text>
+        <Text style={styles.label}>Province</Text>
+        <View style={styles.picker}>
           <Picker
             selectedValue={province}
-            onValueChange={(value) => setProvince(value)}
-            style={styles.picker}
+            onValueChange={handleProvinceChange}
             dropdownIconColor="#fff"
+            style={{ color: '#fff' }}
           >
             <Picker.Item label="Select Province" value="" />
-            {provinces.map((p) => (
-              <Picker.Item key={p.name} label={p.name} value={p.name} />
+            {provinces.map((prov) => (
+              <Picker.Item key={prov.id} label={prov.name} value={prov.name} />
             ))}
           </Picker>
-
-          <Text style={styles.label}>Municipality / City</Text>
-          <Picker
-            selectedValue={municipality}
-            onValueChange={(value) => setMunicipality(value)}
-            style={styles.picker}
-            dropdownIconColor="#fff"
-          >
-            <Picker.Item label="Select Municipality" value="" />
-            {municipalities.map((m) => (
-              <Picker.Item key={m.name} label={m.name} value={m.name} />
-            ))}
-          </Picker>
-
-          <Text style={styles.label}>Barangay</Text>
-          <Picker
-            selectedValue={barangay}
-            onValueChange={(value) => setBarangay(value)}
-            style={styles.picker}
-            dropdownIconColor="#fff"
-          >
-            <Picker.Item label="Select Barangay" value="" />
-            {barangays.map((b) => (
-              <Picker.Item key={b} label={b} value={b} />
-            ))}
-          </Picker>
-        </ScrollView>
-
-        <View style={styles.footer}>
-          <TouchableOpacity onPress={handleSubmit} style={styles.submitButton}>
-            <Text style={styles.submitText}>Submit</Text>
-          </TouchableOpacity>
         </View>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+
+        {municipalities.length > 0 && (
+          <>
+            <Text style={styles.label}>Municipality</Text>
+            <View style={styles.picker}>
+              <Picker
+                selectedValue={municipality}
+                onValueChange={handleMunicipalityChange}
+                dropdownIconColor="#fff"
+                style={{ color: '#fff' }}
+              >
+                <Picker.Item label="Select Municipality" value="" />
+                {municipalities.map((mun) => (
+                  <Picker.Item key={mun.id} label={mun.name} value={mun.name} />
+                ))}
+              </Picker>
+            </View>
+          </>
+        )}
+
+        {barangays.length > 0 && (
+          <>
+            <Text style={styles.label}>Barangay</Text>
+            <View style={styles.picker}>
+              <Picker
+                selectedValue={barangay}
+                onValueChange={setBarangay}
+                dropdownIconColor="#fff"
+                style={{ color: '#fff' }}
+              >
+                <Picker.Item label="Select Barangay" value="" />
+                {barangays.map((brgy, index) => (
+                  <Picker.Item key={index} label={brgy} value={brgy} />
+                ))}
+              </Picker>
+            </View>
+          </>
+        )}
+
+        <TouchableOpacity
+          style={styles.submitButton}
+          onPress={handleRegister}
+          disabled={!name || !contact || !email || !province || !municipality || !barangay}
+        >
+          <Text style={styles.submitText}>Register</Text>
+        </TouchableOpacity>
+      </View>
+    </ScrollView>
   );
 };
 
@@ -286,9 +291,10 @@ const styles = StyleSheet.create({
   },
   picker: {
     backgroundColor: '#1e1e1e',
-    color: '#fff',
     borderRadius: 10,
     marginBottom: 15,
+    borderWidth: 1,
+    borderColor: '#444',
   },
   imagePicker: {
     alignItems: 'center',
@@ -324,5 +330,6 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
 });
+
 
 export default UserRegistration;
