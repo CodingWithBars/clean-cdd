@@ -4,9 +4,12 @@ from typing import List
 from pydantic import BaseModel
 
 app = FastAPI()
+app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+
 
 # In-memory store for scanned locations
 locations = []
+scan_history = []
 
 class Location(BaseModel):
     latitude: float
@@ -16,26 +19,28 @@ class Location(BaseModel):
 
 @app.post("/predict")
 async def predict(
-    file: UploadFile = File(...),
+    image: UploadFile = File(...),
     latitude: float = Form(...),
     longitude: float = Form(...)
 ):
-    # Dummy prediction
-    prediction = "Coccidiosis"
-    probability = 0.87
-
+    # Simulate prediction (normally use model)
     result = {
-        "prediction": prediction,
-        "probability": probability,
+        "disease": "Avian Pox",
+        "probability": 0.87,
         "latitude": latitude,
-        "longitude": longitude
+        "longitude": longitude,
+        "timestamp": datetime.utcnow().isoformat()
     }
 
-    # Store the location data
-    locations.append(result)
+    # Optional: Save to history, map tracking, etc.
+    scan_data.append(result)
 
     return JSONResponse(content=result)
 
 @app.get("/locations", response_model=List[Location])
 async def get_locations():
     return locations
+
+@app.get("/history")
+async def get_history():
+    return scan_history
