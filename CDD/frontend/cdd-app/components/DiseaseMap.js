@@ -1,6 +1,7 @@
+import React, { useRef, useEffect, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import React, { useRef, useEffect } from 'react';
 import MapView, { Circle, Marker } from 'react-native-maps';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const diseaseColors = {
   Salmonellosis: '#FFD93D',
@@ -12,36 +13,64 @@ const diseaseColors = {
 
 export default function DiseaseMap({
   locations = [],
-  userLocation,
+  currentGpsLocation,
   useRegistered,
   onToggleLocation,
 }) {
   const mapRef = useRef(null);
-
-  const initialRegion = {
-    latitude: userLocation?.latitude || 0,
-    longitude: userLocation?.longitude || 0,
-    latitudeDelta: 0.02,
-    longitudeDelta: 0.02,
-  };
+  const [registeredLocation, setRegisteredLocation] = useState(null);
 
   useEffect(() => {
-    if (userLocation && mapRef.current) {
-      mapRef.current.animateToRegion(initialRegion, 1000);
+    const fetchRegisteredLocation = async () => {
+      const stored = await AsyncStorage.getItem('userInfo');
+      if (stored) {
+        const user = JSON.parse(stored);
+        if (user.lat && user.lng) {
+          setRegisteredLocation({ latitude: user.lat, longitude: user.lng });
+        }
+      }
+    };
+    fetchRegisteredLocation();
+  }, []);
+
+  const activeLocation = useRegistered && registeredLocation ? registeredLocation : currentGpsLocation;
+
+  useEffect(() => {
+    if (activeLocation && mapRef.current) {
+      mapRef.current.animateToRegion(
+        {
+          ...activeLocation,
+          latitudeDelta: 0.02,
+          longitudeDelta: 0.02,
+        },
+        1000
+      );
     }
-  }, [userLocation]);
+  }, [activeLocation]);
 
   return (
     <View style={styles.mapContainer}>
-      <MapView ref={mapRef} style={styles.map} initialRegion={initialRegion}>
-        {userLocation && (
+      <MapView
+        ref={mapRef}
+        style={styles.map}
+        initialRegion={{
+          latitude: activeLocation?.latitude || 7.0,
+          longitude: activeLocation?.longitude || 126.0,
+          latitudeDelta: 0.02,
+          longitudeDelta: 0.02,
+        }}
+      >
+        {activeLocation && (
           <>
-            <Marker coordinate={userLocation} pinColor="#2563EB" />
+            <Marker
+              coordinate={activeLocation}
+              pinColor={useRegistered ? '#888' : '#2563EB'}
+            />
             <Circle
-              center={userLocation}
+              center={activeLocation}
               radius={100}
-              strokeColor="#2563EB"
-              fillColor="#2563EB33"
+              strokeColor={useRegistered ? '#888' : '#2563EB'}
+              fillColor={useRegistered ? '#8888884D' : '#2563EB33'}
             />
           </>
         )}
@@ -57,26 +86,20 @@ export default function DiseaseMap({
         ))}
       </MapView>
 
-      {/* Toggle location button */}
-      <View style={styles.toggleButtonContainer}>
-        <TouchableOpacity onPress={onToggleLocation} style={styles.toggleButton}>
-          <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 10 }}>
-            {useRegistered ? 'Current Location' : 'Registered Location'}
-          </Text>
-        </TouchableOpacity>
-      </View>
+      <TouchableOpacity style={styles.toggleButtonContainer} onPress={onToggleLocation}>
+        <Text style={styles.toggleButtonText}>
+          {useRegistered ? 'Current Location' : 'Registered Location'}
+        </Text>
+      </TouchableOpacity>
 
-      {/* Legend */}
       <View style={styles.mapOverlay}>
         <Text style={styles.mapTitle}>Legend</Text>
-        <View style={styles.legend}>
-          {Object.entries(diseaseColors).map(([key, color]) => (
-            <View key={key} style={styles.legendItem}>
-              <View style={[styles.legendColor, { backgroundColor: color }]} />
-              <Text style={styles.legendText}>{key}</Text>
-            </View>
-          ))}
-        </View>
+        {Object.entries(diseaseColors).map(([key, color]) => (
+          <View key={key} style={styles.legendItem}>
+            <View style={[styles.legendColor, { backgroundColor: color }]} />
+            <Text style={styles.legendText}>{key}</Text>
+          </View>
+        ))}
       </View>
     </View>
   );
@@ -90,47 +113,46 @@ const styles = StyleSheet.create({
   },
   map: {
     width: '100%',
-    height: 320,
+    height: '100%',
   },
   toggleButtonContainer: {
-  position: 'absolute',
-  top: 8,
-  right: 8,
-  zIndex: 10,
-},
-toggleButton: {
-  backgroundColor: '#2563EB',
-  paddingVertical: 6,
-  paddingHorizontal: 10,
-  borderRadius: 6,
-},
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    backgroundColor: '#2563EB',
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 6,
+    zIndex: 10,
+  },
+  toggleButtonText: {
+    color: 'white',
+    fontWeight: 'bold',
+    fontSize: 10,
+  },
   mapOverlay: {
-  position: 'absolute',
-  top: 40, // below the toggle
-  right: 8,
-  backgroundColor: 'rgba(0,0,0,0.7)',
-  padding: 8,
-  borderRadius: 8,
-},
+    position: 'absolute',
+    top: 40,
+    right: 8,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    padding: 8,
+    borderRadius: 8,
+  },
   mapTitle: {
     color: '#FFF',
     fontSize: 10,
     fontWeight: 'bold',
     marginBottom: 4,
   },
-  legend: {
-  flexDirection: 'column', // vertical
-  justifyContent: 'flex-start',
-},
-legendItem: {
-  flexDirection: 'row',
-  alignItems: 'center',
-  marginVertical: 2,
-},
+  legendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 2,
+  },
   legendColor: {
     width: 10,
     height: 10,
-    borderRadius: 6,
+    borderRadius: 5,
     marginRight: 4,
   },
   legendText: {

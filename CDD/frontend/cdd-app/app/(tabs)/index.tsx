@@ -14,6 +14,7 @@ import { getScanLocations } from '@/utils/api';
 import styles from '../styles/index.styles';
 import DiseaseMap from '../../components/DiseaseMap';
 import AnalyticsPanel from '../../components/AnalyticsPanel';
+import ProfileSection from '../../components/ProfileSection';
 import UserRegistration from '../UserRegistration';
 import DiseaseAlertBanner from '../../components/DiseasAlertBanner';
 import LatestScanList from '../../components/LatestScanList';
@@ -31,19 +32,28 @@ export default function HomeScreen() {
   const navigation = useNavigation();
 
   const convertLocationToCoords = async (locationString: string) => {
-    try {
-      const geocode = await Location.geocodeAsync(locationString);
-      if (geocode.length > 0) {
-        const coords = {
-          latitude: geocode[0].latitude,
-          longitude: geocode[0].longitude,
-        };
-        setRegisteredCoords(coords);
-      }
-    } catch (error) {
-      console.warn('Failed to geocode user location', error);
+  if (!locationString || typeof locationString !== 'string' || locationString.trim() === '') {
+    console.warn('Location string is empty or invalid.');
+    return;
+  }
+
+  try {
+    const geocode = await Location.geocodeAsync(locationString);
+    if (geocode.length > 0) {
+      const coords = {
+        latitude: geocode[0].latitude,
+        longitude: geocode[0].longitude,
+      };
+      setRegisteredCoords(coords);
+      console.log('Geocoded coords:', coords);
+    } else {
+      console.warn('No geocode results found for the provided location.');
     }
-  };
+  } catch (error) {
+    console.warn('Failed to geocode user location', error);
+  }
+};
+
 
   useEffect(() => {
     if (useRegistered && registeredCoords) {
@@ -63,13 +73,19 @@ export default function HomeScreen() {
       const data = await AsyncStorage.getItem('userInfo');
       if (data) {
         const parsed = JSON.parse(data);
+        console.log('Loaded user info:', parsed); // Debug log
+
         setUserInfo(parsed);
-        convertLocationToCoords(parsed.location);
+
+        const fullLocation = `${parsed.barangay}, ${parsed.municipality}, ${parsed.province}, ${parsed.region}`;
+        convertLocationToCoords(fullLocation);
+
         setShowRegistration(false);
       } else {
         setShowRegistration(true);
       }
     };
+
     loadUser();
   }, []);
 
@@ -85,7 +101,8 @@ export default function HomeScreen() {
     if (data) {
       const parsed = JSON.parse(data);
       setUserInfo(parsed);
-      convertLocationToCoords(parsed.location);
+      const fullLocation = `${parsed.barangay}, ${parsed.municipality}, ${parsed.province}, ${parsed.region}`;
+      convertLocationToCoords(fullLocation);
     }
     setShowRegistration(false);
   };
@@ -140,20 +157,16 @@ export default function HomeScreen() {
     <SafeAreaView style={{ flex: 1, backgroundColor: '#121212' }}>
       {/* User Header */}
       {userInfo && (
-        <View style={styles.userHeader}>
-          <Image source={{ uri: userInfo.profileImage }} style={styles.avatar} />
-          <View>
-            <Text style={styles.welcomeText}>Welcome, {userInfo.fullName}</Text>
-            <Text style={styles.locationText}>{userInfo.location}</Text>
-          </View>
-        </View>
+        <ProfileSection />
       )}
+
+      
 
       <ScrollView contentContainerStyle={{ paddingBottom: 20 }}>
         {/* Map */}
         <View style={{ height: 320, marginTop: 10 }}>
           <DiseaseMap
-            userLocation={userLocation}
+            currentGpsLocation={userLocation} // ✅ updated
             locations={locations}
             useRegistered={useRegistered}
             onToggleLocation={() => setUseRegistered(!useRegistered)}
