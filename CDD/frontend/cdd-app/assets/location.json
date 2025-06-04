@@ -1,0 +1,51 @@
+{
+  "region": "Davao Region",
+  "province": "Davao Oriental",
+  "municipalities": [
+    {
+      "name": "Banaybanay",
+      "barangays": [
+        "Cabangcalan",
+        "Caganganan",
+        "Calubihan",
+        "Causwagan",
+        "Punta Linao",
+        "Mahayag",
+        "Maputi",
+        "Mogbongcogon",
+        "Panikian",
+        "Pintatagan",
+        "Piso Proper",
+        "Poblacion",
+        "San Vicente",
+        "Rang-ay"
+      ]
+    },
+    {
+      "name": "Lupon",
+      "barangays": [
+        "Bagumbayan",
+        "Cabadiangan",
+        "Calapagan",
+        "Cocornon",
+        "Corporacion",
+        "Don Mariano Marcos",
+        "Ilangay",
+        "Langka",
+        "Lantawan",
+        "Limbahan",
+        "Macangao",
+        "Magsaysay",
+        "Mahayahay",
+        "Maragatas",
+        "Marayag",
+        "New Visayas",
+        "Poblacion",
+        "San Isidro",
+        "San Jose",
+        "Tagboa",
+        "Tagugpo"
+      ]
+    }
+  ]
+}
