@@ -5,46 +5,47 @@
     {
       "name": "Banaybanay",
       "barangays": [
-        "Cabangcalan",
-        "Caganganan",
-        "Calubihan",
-        "Causwagan",
-        "Punta Linao",
-        "Mahayag",
-        "Maputi",
-        "Mogbongcogon",
-        "Panikian",
-        "Pintatagan",
-        "Piso Proper",
-        "Poblacion",
-        "San Vicente",
-        "Rang-ay"
+        "Cabangcalan", "Caganganan", "Calubihan", "Causwagan", "Punta Linao",
+        "Mahayag", "Maputi", "Mogbongcogon", "Panikian", "Pintatagan",
+        "Piso Proper", "Poblacion", "San Vicente", "Rang-ay"
       ]
     },
     {
       "name": "Lupon",
       "barangays": [
-        "Bagumbayan",
-        "Cabadiangan",
-        "Calapagan",
-        "Cocornon",
-        "Corporacion",
-        "Don Mariano Marcos",
-        "Ilangay",
-        "Langka",
-        "Lantawan",
-        "Limbahan",
-        "Macangao",
-        "Magsaysay",
-        "Mahayahay",
-        "Maragatas",
-        "Marayag",
-        "New Visayas",
-        "Poblacion",
-        "San Isidro",
-        "San Jose",
-        "Tagboa",
-        "Tagugpo"
+        "Bagumbayan", "Cabadiangan", "Calapagan", "Cocornon", "Corporacion",
+        "Don Mariano Marcos", "Ilangay", "Langka", "Lantawan", "Limbahan",
+        "Macangao", "Magsaysay", "Mahayahay", "Maragatas", "Marayag",
+        "New Visayas", "Poblacion", "San Isidro", "San Jose", "Tagboa", "Tagugpo"
+      ]
+    },
+    {
+      "name": "Mati City",
+      "barangays": [
+        "Badas", "Bobon", "Buso", "Central", "Culian", "Dahican", "Don Enrique Lopez",
+        "Don Martin Marundan", "Libudon", "Luban", "Macambol", "Mamali", "Matiao",
+        "Sainz", "Tagabakid", "Tamisan", "Barangay 1", "Barangay 2", "Barangay 3", "Barangay 4"
+      ]
+    },
+    {
+      "name": "Baganga",
+      "barangays": [
+        "Baculin", "Ban-ao", "Batawan", "Batiano", "Bobonao", "Campawan",
+        "Dapnan", "Kinablangan", "Lambajon", "Lucod", "Mahan-ub", "San Isidro", "Saoquigue"
+      ]
+    },
+    {
+      "name": "Cateel",
+      "barangays": [
+        "Alegria", "Aliwagwag", "Aragon", "Baybay", "Boston", "Kinablangan", "Mainit",
+        "San Alfonso", "San Antonio", "San Miguel", "San Rafael", "Taytayan"
+      ]
+    },
+    {
+      "name": "Caraga",
+      "barangays": [
+        "Alegria", "Alvar", "Bahay", "La Union", "Lambo", "Mercedes", "Osmeña",
+        "P.M. Sobrecarey", "San Antonio", "San Miguel", "San Pedro", "Santa Fe", "Santiago"
       ]
     }
   ]

@@ -14,24 +14,22 @@ const LocationDropdowns = ({ onLocationChange }) => {
 
   useEffect(() => {
     if (municipality) {
-      const selected = municipalities.find(m => m.name === municipality);
-      if (selected) {
-        setBarangays(selected.barangays || []);
-        setBarangay('');
-      }
+      const selected = municipalities.find((m) => m.name === municipality);
+      setBarangays(selected?.barangays || []);
+      setBarangay('');
     }
   }, [municipality]);
 
   useEffect(() => {
-    if (municipality && barangay) {
+    if (region && province && municipality && barangay) {
       onLocationChange({
         region,
         province,
         municipality,
-        barangay
+        barangay,
       });
     }
-  }, [barangay]);
+  }, [region, province, municipality, barangay]);
 
   if (!region || !province || municipalities.length === 0) {
     return (
@@ -43,11 +41,11 @@ const LocationDropdowns = ({ onLocationChange }) => {
 
   return (
     <View style={{ marginVertical: 12 }}>
-      <Text style={{ color: 'white', marginBottom: 6 }}>Municipality</Text>
+      <Text style={styles.label}>Municipality</Text>
       <Picker
         selectedValue={municipality}
-        onValueChange={(value) => setMunicipality(value)}
-        style={{ backgroundColor: '#333', color: 'white', borderRadius: 8 }}
+        onValueChange={setMunicipality}
+        style={styles.picker}
       >
         <Picker.Item label="Select Municipality" value="" />
         {municipalities.map((m) => (
@@ -57,11 +55,11 @@ const LocationDropdowns = ({ onLocationChange }) => {
 
       {barangays.length > 0 && (
         <>
-          <Text style={{ color: 'white', marginTop: 12, marginBottom: 6 }}>Barangay</Text>
+          <Text style={styles.label}>Barangay</Text>
           <Picker
             selectedValue={barangay}
-            onValueChange={(value) => setBarangay(value)}
-            style={{ backgroundColor: '#333', color: 'white', borderRadius: 8 }}
+            onValueChange={setBarangay}
+            style={styles.picker}
           >
             <Picker.Item label="Select Barangay" value="" />
             {barangays.map((b) => (
@@ -72,6 +70,19 @@ const LocationDropdowns = ({ onLocationChange }) => {
       )}
     </View>
   );
+};
+
+const styles = {
+  label: {
+    color: 'white',
+    marginBottom: 6,
+    marginTop: 12,
+  },
+  picker: {
+    backgroundColor: '#333',
+    color: 'white',
+    borderRadius: 8,
+  },
 };
 
 export default LocationDropdowns;
