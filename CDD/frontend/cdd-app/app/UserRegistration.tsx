@@ -46,7 +46,7 @@ const UserRegistration = ({ onComplete }) => {
     }
   };
 
-  const signUpUser = async () => {
+    const signUpUser = async () => {
   try {
     if (!location) {
       Alert.alert('Location Missing', 'Please complete the location fields.');
@@ -65,22 +65,24 @@ const UserRegistration = ({ onComplete }) => {
           municipality: location.municipality,
           barangay: location.barangay,
         },
-        emailRedirectTo: 'https://twhpxhnukyvhplphiflm.supabase.co/verified',
+        emailRedirectTo: 'cddapp://verified',
       },
     });
 
-    if (error) {
-      console.error('Supabase sign-up error:', error.message);
-      Alert.alert('Registration Error', error.message);
+    if (error || !data.user) {
+      console.error('Supabase sign-up error:', error?.message || 'Missing user');
+      Alert.alert('Registration Error', error?.message || 'Missing user info');
       return;
     }
 
     const userInfo = {
+      id: data.user.id, // ✅ include ID
       ...form,
       ...location,
     };
 
-    await AsyncStorage.setItem('userInfo', JSON.stringify(userInfo));
+    await AsyncStorage.setItem('user_info', JSON.stringify(userInfo)); // ✅ consistent key
+    console.log("Saved user info:", userInfo);
 
     if (!data.session?.user?.email_confirmed_at) {
       router.replace('/verify-email');

@@ -1,40 +1,36 @@
-import os
-import uuid
-import shutil
-from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+import os, uuid, shutil
 from dotenv import load_dotenv
 
-# Load environment variables from .env before anything else
+# Load env before any other import
 base_dir = os.path.dirname(os.path.abspath(__file__))
-dotenv_path = os.path.join(base_dir, "..", ".env")
-load_dotenv(dotenv_path)
+load_dotenv(os.path.join(base_dir, "..", ".env"))
 
-# Internal service imports (after env is loaded)
 from app.services.model import predict_image
 from app.services.supabase_client import upload_image, save_scan
 
 app = FastAPI()
 
-# Enable CORS (adjust in production)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Replace with frontend URL in production
+    allow_origins=["*"],  # Restrict in prod
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Uploads directory setup
 UPLOAD_FOLDER = "uploads"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-
-@app.post("/predict/")
+@app.post("/predict")
 async def predict(
     file: UploadFile = File(...),
     latitude: float = Form(...),
-    longitude: float = Form(...)
+    longitude: float = Form(...),
+    municipality: str = Form(...),
+    barangay: str = Form(...),
+    user_id: str = Form(...)
 ):
     try:
         filename = f"{uuid.uuid4().hex}_{file.filename}"
@@ -43,21 +39,31 @@ async def predict(
         with open(file_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
 
-        # Predict using model
-        prediction, probabilities = predict_image(file_path)
+        print(f"📸 Received file: {filename}")
 
-        # Upload image to Supabase
+        prediction, probabilities = predict_image(file_path)
+        confidence = float(max(probabilities.values()))
         image_url = upload_image(file_path, filename)
 
-        # Save scan result to Supabase
-        save_scan(prediction, probabilities, image_url, latitude, longitude)
+        save_scan(
+            user_id=user_id,
+            image_url=image_url,
+            prediction=prediction,
+            confidence=confidence,
+            latitude=latitude,
+            longitude=longitude,
+            municipality=municipality,
+            barangay=barangay
+        )
 
         return {
             "prediction": prediction,
-            "probabilities": probabilities,
+            "confidence": confidence,
             "image_url": image_url,
-            "lat": latitude,
-            "lon": longitude
+            "latitude": latitude,
+            "longitude": longitude,
+            "municipality": municipality,
+            "barangay": barangay,
         }
 
     except Exception as e:

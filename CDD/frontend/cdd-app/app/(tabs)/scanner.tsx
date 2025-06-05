@@ -34,41 +34,41 @@ export default function ScannerScreen() {
     }
 
     const location = await Location.getCurrentPositionAsync({});
+    const userInfo = await AsyncStorage.getItem('user_info');
+    const user = userInfo ? JSON.parse(userInfo) : null;
+    if (!user) throw new Error("User info not found.");
+
     const formData = new FormData();
-    formData.append('image', {
+    formData.append('file', {
       uri: imageUri,
       name: 'scan.jpg',
       type: 'image/jpeg',
     } as any);
-
     formData.append('latitude', String(location.coords.latitude));
     formData.append('longitude', String(location.coords.longitude));
+    formData.append('municipality', user.municipality);
+    formData.append('barangay', user.barangay);
+    formData.append('user_id', user.id); // Should be saved on registration
 
-    const response = await fetch('https://192.168.2.7:8080/predict', {
+    const response = await fetch('http://192.168.2.7:8080/predict', {
       method: 'POST',
       body: formData,
-      headers: { 'Content-Type': 'multipart/form-data' },
     });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Server error: ${errorText}`);
+    }
 
     const data = await response.json();
 
-    if (!data || !data.result) {
-      throw new Error('Invalid response from backend');
-    }
-
-    // Save to AsyncStorage history
     const existing = await AsyncStorage.getItem('scan_history');
     const history = existing ? JSON.parse(existing) : [];
-    const newHistory = [data, ...history].slice(0, 10); // limit to 10
+    const newHistory = [data, ...history].slice(0, 10);
     await AsyncStorage.setItem('scan_history', JSON.stringify(newHistory));
 
-    // Navigate to result screen
-    router.replace({
-      pathname: '/result',
-      params: {
-        ...data, // contains result, image_url, lat/lon, location_name, etc.
-      },
-    });
+    router.replace({ pathname: '/result', params: { ...data } });
+
   } catch (err: any) {
     Alert.alert('Prediction Failed', err.message || 'Something went wrong');
   } finally {
