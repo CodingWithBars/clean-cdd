@@ -1,207 +1,100 @@
-import React, { useState, useEffect } from 'react';
-import {
-  View,
-  Text,
-  Image,
-  StyleSheet,
-  Alert,
-  ActivityIndicator,
-  TouchableOpacity,
-} from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, TouchableOpacity, Image, ActivityIndicator, Alert, StyleSheet } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
-import * as FileSystem from 'expo-file-system';
-import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { supabase } from '../../lib/supabase';
+import { useRouter } from 'expo-router';
 
-const API_BASE_URL = 'http://192.168.2.7:8080'; // 🔧 Adjust IP or move to config
-
-export default function ScanScreen() {
-  const [image, setImage] = useState(null);
-  const [imageName, setImageName] = useState(null);
-  const [location, setLocation] = useState(null);
-  const [locationName, setLocationName] = useState('Unknown');
+export default function ScannerScreen() {
+  const [image, setImage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
-  useEffect(() => {
-    const requestPermissions = async () => {
-      try {
-        const servicesEnabled = await Location.hasServicesEnabledAsync();
-        if (!servicesEnabled) {
-          Alert.alert('Location Disabled', 'Enable location services to use scanning.');
-          return;
-        }
+  const handleImagePick = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      quality: 0.7,
+    });
 
-        const { status: locStatus } = await Location.requestForegroundPermissionsAsync();
-        if (locStatus !== 'granted') {
-          Alert.alert('Permission Denied', 'Location permission is required.');
-          return;
-        }
-
-        const { status: camStatus } = await ImagePicker.requestCameraPermissionsAsync();
-        if (camStatus !== 'granted') {
-          Alert.alert('Permission Denied', 'Camera permission is required.');
-          return;
-        }
-
-        const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
-        setLocation(loc.coords);
-
-        const geocode = await Location.reverseGeocodeAsync(loc.coords);
-        const place = geocode[0];
-        const humanReadable = `${place?.district || ''}, ${place?.city || place?.region || ''}`;
-        setLocationName(humanReadable || 'Unknown');
-      } catch (err) {
-        console.error('Permission error:', err);
-        Alert.alert('Error', 'Could not retrieve location.');
-      }
-    };
-
-    requestPermissions();
-  }, []);
-
-  const handleImagePick = async (source) => {
-    try {
-      const pickerFunc = source === 'camera'
-        ? ImagePicker.launchCameraAsync
-        : ImagePicker.launchImageLibraryAsync;
-
-      const result = await pickerFunc({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        quality: 0.8,
-        allowsEditing: true,
-      });
-
-      if (!result.canceled && result.assets?.length) {
-        const uri = result.assets[0].uri;
-        const filename = uri.split('/').pop();
-        setImage(uri);
-        setImageName(filename);
-      }
-    } catch (err) {
-      console.error('Image pick error:', err);
-      Alert.alert('Error', 'Failed to pick image.');
+    if (!result.canceled && result.assets.length > 0) {
+      setImage(result.assets[0].uri);
+      handlePrediction(result.assets[0].uri);
     }
   };
 
-  const handleSubmit = async () => {
-    if (!image || !location) {
-      Alert.alert('Missing Data', 'Please capture an image and ensure location is available.');
+  const handlePrediction = async (imageUri: string) => {
+  try {
+    setLoading(true);
+
+    const { status } = await Location.requestForegroundPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission required', 'Location permission is needed to tag scans.');
       return;
     }
 
-    setLoading(true);
-    try {
-      const base64 = await FileSystem.readAsStringAsync(image, { encoding: 'base64' });
-      const response = await fetch(`${API_BASE_URL}/predict`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ image: base64 }),
-      });
+    const location = await Location.getCurrentPositionAsync({});
+    const formData = new FormData();
+    formData.append('image', {
+      uri: imageUri,
+      name: 'scan.jpg',
+      type: 'image/jpeg',
+    } as any);
 
-      const result = await response.json();
-      if (!response.ok) throw new Error(result?.error || 'Prediction failed');
+    formData.append('latitude', String(location.coords.latitude));
+    formData.append('longitude', String(location.coords.longitude));
 
-      const { prediction, probabilities } = result;
-      const filename = `${Date.now()}_${imageName || 'scan'}`;
+    const response = await fetch('https://192.168.2.7:8080/predict', {
+      method: 'POST',
+      body: formData,
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
 
-      const { data, error } = await supabase.storage
-        .from('scans')
-        .upload(filename, await (await fetch(image)).blob());
+    const data = await response.json();
 
-      if (error) throw error;
-
-      const { error: insertError } = await supabase
-        .from('scan_results')
-        .insert({
-          image_url: data.path,
-          prediction,
-          probabilities,
-          latitude: location.latitude,
-          longitude: location.longitude,
-        });
-
-      if (insertError) throw insertError;
-
-      await AsyncStorage.setItem('last_scan', JSON.stringify({ prediction, probabilities }));
-      router.push(`/result?prediction=${prediction}`);
-    } catch (err) {
-      console.error(err);
-      Alert.alert('Error', err.message || 'Failed to process scan.');
-    } finally {
-      setLoading(false);
+    if (!data || !data.result) {
+      throw new Error('Invalid response from backend');
     }
-  };
+
+    // Save to AsyncStorage history
+    const existing = await AsyncStorage.getItem('scan_history');
+    const history = existing ? JSON.parse(existing) : [];
+    const newHistory = [data, ...history].slice(0, 10); // limit to 10
+    await AsyncStorage.setItem('scan_history', JSON.stringify(newHistory));
+
+    // Navigate to result screen
+    router.replace({
+      pathname: '/result',
+      params: {
+        ...data, // contains result, image_url, lat/lon, location_name, etc.
+      },
+    });
+  } catch (err: any) {
+    Alert.alert('Prediction Failed', err.message || 'Something went wrong');
+  } finally {
+    setLoading(false);
+  }
+};
+
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Scan a Chicken</Text>
-      <Text style={styles.subtitle}>Location: {locationName}</Text>
+      <Text style={styles.title}>Chicken Disease Scanner</Text>
 
-      {image && <Image source={{ uri: image }} style={styles.preview} />}
-
-      <View style={styles.buttonRow}>
-        <TouchableOpacity onPress={() => handleImagePick('camera')} style={styles.button}>
-          <Text style={styles.buttonText}>Use Camera</Text>
-        </TouchableOpacity>
-        <TouchableOpacity onPress={() => handleImagePick('gallery')} style={styles.button}>
-          <Text style={styles.buttonText}>Upload Image</Text>
-        </TouchableOpacity>
-      </View>
-
-      <TouchableOpacity
-        onPress={handleSubmit}
-        style={[styles.button, { marginTop: 16 }]}
-        disabled={loading}
-      >
-        {loading ? <ActivityIndicator color="white" /> : <Text style={styles.buttonText}>Submit</Text>}
+      <TouchableOpacity style={styles.button} onPress={handleImagePick}>
+        <Text style={styles.buttonText}>Pick or Capture Image</Text>
       </TouchableOpacity>
+
+      {loading && <ActivityIndicator size="large" color="#4ECDC4" style={{ marginTop: 20 }} />}
+      {image && !loading && <Image source={{ uri: image }} style={styles.preview} />}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#121212',
-    padding: 20,
-    justifyContent: 'center',
-  },
-  title: {
-    fontSize: 22,
-    color: 'white',
-    fontWeight: 'bold',
-    marginBottom: 10,
-  },
-  subtitle: {
-    fontSize: 14,
-    color: 'gray',
-    marginBottom: 20,
-  },
-  preview: {
-    width: '100%',
-    height: 200,
-    borderRadius: 8,
-    marginBottom: 16,
-  },
-  buttonRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 10,
-  },
-  button: {
-    backgroundColor: '#1E88E5',
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 8,
-    flex: 1,
-    alignItems: 'center',
-    marginHorizontal: 4,
-  },
-  buttonText: {
-    color: 'white',
-    fontWeight: '600',
-  },
+  container: { flex: 1, backgroundColor: '#121212', alignItems: 'center', justifyContent: 'center', padding: 16 },
+  title: { fontSize: 20, color: 'white', marginBottom: 20 },
+  button: { backgroundColor: '#4ECDC4', padding: 12, borderRadius: 8 },
+  buttonText: { color: '#121212', fontSize: 16 },
+  preview: { width: 250, height: 250, marginTop: 20, borderRadius: 12 },
 });

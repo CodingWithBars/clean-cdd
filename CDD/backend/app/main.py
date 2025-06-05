@@ -12,7 +12,7 @@ load_dotenv(dotenv_path)
 
 # Internal service imports (after env is loaded)
 from app.services.model import predict_image
-from app.services.supabase_client import upload_image
+from app.services.supabase_client import upload_image, save_scan
 
 app = FastAPI()
 
@@ -31,25 +31,33 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 
 @app.post("/predict/")
-async def predict(file: UploadFile = File(...)):
+async def predict(
+    file: UploadFile = File(...),
+    latitude: float = Form(...),
+    longitude: float = Form(...)
+):
     try:
-        # Save uploaded image
         filename = f"{uuid.uuid4().hex}_{file.filename}"
         file_path = os.path.join(UPLOAD_FOLDER, filename)
 
         with open(file_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
 
-        # Get prediction
+        # Predict using model
         prediction, probabilities = predict_image(file_path)
 
-        # Upload to Supabase and get public URL
+        # Upload image to Supabase
         image_url = upload_image(file_path, filename)
+
+        # Save scan result to Supabase
+        save_scan(prediction, probabilities, image_url, latitude, longitude)
 
         return {
             "prediction": prediction,
             "probabilities": probabilities,
             "image_url": image_url,
+            "lat": latitude,
+            "lon": longitude
         }
 
     except Exception as e:
@@ -59,3 +67,12 @@ async def predict(file: UploadFile = File(...)):
 @app.get("/")
 def read_root():
     return {"message": "CDD backend running."}
+
+@app.get("/scans")
+def get_scans():
+    return {"message": "CDD backend scan running."}
+
+@app.get("/history")
+def get_history():
+    return {"message": "CDD backend get_history running."}
+
