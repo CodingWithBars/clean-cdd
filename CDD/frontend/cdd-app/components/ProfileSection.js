@@ -5,17 +5,18 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 const ProfileSection = () => {
   const [userInfo, setUserInfo] = useState(null);
 
-  useEffect(() => {
-    const loadUser = async () => {
-      try {
-        const storedUser = await AsyncStorage.getItem('userInfo');
-        if (storedUser) {
-          setUserInfo(JSON.parse(storedUser));
-        }
-      } catch (error) {
-        console.log('Error loading user data:', error);
+  const loadUser = async () => {
+    try {
+      const storedUser = await AsyncStorage.getItem('userInfo');
+      if (storedUser) {
+        setUserInfo(JSON.parse(storedUser));
       }
-    };
+    } catch (error) {
+      console.log('Error loading user data:', error);
+    }
+  };
+
+  useEffect(() => {
     loadUser();
   }, []);
 
@@ -27,7 +28,9 @@ const ProfileSection = () => {
     );
   }
 
-  const fullLocation = `${userInfo.barangay}, ${userInfo.municipality}`;
+  const fullLocation = [userInfo.barangay, userInfo.municipality]
+    .filter(Boolean)
+    .join(', ');
 
   return (
     <View style={styles.userHeader}>
@@ -41,8 +44,10 @@ const ProfileSection = () => {
         </View>
       )}
       <View>
-        <Text style={styles.welcomeText}>Welcome, {userInfo.name}</Text>
-        <Text style={styles.locationText}>{fullLocation}</Text>
+        <Text style={styles.welcomeText}>
+          Welcome, {userInfo.name || 'User'}
+        </Text>
+        <Text style={styles.locationText}>{fullLocation || 'Unknown Location'}</Text>
       </View>
     </View>
   );
@@ -54,7 +59,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 50,
     marginBottom: 20,
-    paddingHorizontal: 10
+    paddingHorizontal: 10,
   },
   avatar: {
     width: 70,

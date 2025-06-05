@@ -14,10 +14,11 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import { supabase } from '../lib/supabase';
 import LocationDropdowns from '../components/LocationDropdowns';
+import styles from '../app/styles/userReg.styles';
 
 const UserRegistration = ({ onComplete }) => {
   const router = useRouter();
-  const [form, setForm] = useState({ name: '', contact: '', email: '' });
+  const [form, setForm] = useState({ name: '', password: '', contact: '', email: '' });
   const [imageUri, setImageUri] = useState('');
   const [location, setLocation] = useState(null);
 
@@ -115,6 +116,12 @@ const UserRegistration = ({ onComplete }) => {
       />
       <TextInput
         style={styles.input}
+        placeholder="Password"
+        value={form.password}
+        onChangeText={(val) => handleInputChange('password', val)}
+      />
+      <TextInput
+        style={styles.input}
         placeholder="Contact Number"
         keyboardType="phone-pad"
         value={form.contact}
@@ -137,93 +144,12 @@ const UserRegistration = ({ onComplete }) => {
       <TouchableOpacity
         style={styles.submitButton}
         onPress={signUpUser}
-        disabled={!form.name || !form.contact || !form.email || !location}
+        disabled={!form.name || !form.password || !form.contact || !form.email || !location}
       >
         <Text style={styles.submitText}>Register</Text>
       </TouchableOpacity>
     </ScrollView>
   );
 };
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#000',
-    marginTop: 20,
-    marginBottom: 100,
-  },
-  header: {
-    paddingVertical: 20,
-    paddingHorizontal: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#333',
-  },
-  title: {
-    fontSize: 24,
-    color: '#fff',
-    textAlign: 'center',
-  },
-  formContainer: {
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 100,
-  },
-  input: {
-    backgroundColor: '#1e1e1e',
-    color: '#fff',
-    borderRadius: 10,
-    padding: 15,
-    marginBottom: 15,
-    borderColor: '#444',
-    borderWidth: 1,
-  },
-  label: {
-    color: '#ccc',
-    marginTop: 10,
-    marginBottom: 5,
-    fontSize: 14,
-  },
-  picker: {
-    backgroundColor: '#1e1e1e',
-    borderRadius: 10,
-    marginBottom: 15,
-    borderWidth: 1,
-    borderColor: '#444',
-  },
-  imagePicker: {
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  imageText: {
-    color: '#888',
-    fontSize: 14,
-    padding: 10,
-    borderRadius: 8,
-    borderColor: '#444',
-    borderWidth: 1,
-  },
-  avatar: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-  },
-  footer: {
-    padding: 20,
-    borderTopColor: '#333',
-    borderTopWidth: 1,
-  },
-  submitButton: {
-    backgroundColor: '#00c853',
-    padding: 15,
-    borderRadius: 10,
-  },
-  submitText: {
-    color: '#fff',
-    textAlign: 'center',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-});
-
 
 export default UserRegistration;

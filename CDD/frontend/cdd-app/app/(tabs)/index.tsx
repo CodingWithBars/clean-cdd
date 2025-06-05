@@ -21,6 +21,7 @@ import LatestScanList from '../../components/LatestScanList';
 import { useNavigation } from 'expo-router';
 
 export default function HomeScreen() {
+  
   const [useRegistered, setUseRegistered] = useState(false);
   const [userInfo, setUserInfo] = useState<any>(null);
   const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null);
@@ -32,28 +33,27 @@ export default function HomeScreen() {
   const navigation = useNavigation();
 
   const convertLocationToCoords = async (locationString: string) => {
-  if (!locationString || typeof locationString !== 'string' || locationString.trim() === '') {
-    console.warn('Location string is empty or invalid.');
-    return;
-  }
-
-  try {
-    const geocode = await Location.geocodeAsync(locationString);
-    if (geocode.length > 0) {
-      const coords = {
-        latitude: geocode[0].latitude,
-        longitude: geocode[0].longitude,
-      };
-      setRegisteredCoords(coords);
-      console.log('Geocoded coords:', coords);
-    } else {
-      console.warn('No geocode results found for the provided location.');
+    if (!locationString || typeof locationString !== 'string' || locationString.trim() === '') {
+      console.warn('Location string is empty or invalid.');
+      return;
     }
-  } catch (error) {
-    console.warn('Failed to geocode user location', error);
-  }
-};
 
+    try {
+      const geocode = await Location.geocodeAsync(locationString);
+      if (geocode.length > 0) {
+        const coords = {
+          latitude: geocode[0].latitude,
+          longitude: geocode[0].longitude,
+        };
+        setRegisteredCoords(coords);
+        console.log('Geocoded coords:', coords);
+      } else {
+        console.warn('No geocode results found for the provided location.');
+      }
+    } catch (error) {
+      console.warn('Failed to geocode user location', error);
+    }
+  };
 
   useEffect(() => {
     if (useRegistered && registeredCoords) {
