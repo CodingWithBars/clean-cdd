@@ -86,12 +86,6 @@ export default function DiseaseMap({
         ))}
       </MapView>
 
-      <TouchableOpacity style={styles.toggleButtonContainer} onPress={onToggleLocation}>
-        <Text style={styles.toggleButtonText}>
-          {useRegistered ? 'Current Location' : 'Registered Location'}
-        </Text>
-      </TouchableOpacity>
-
       <View style={styles.mapOverlay}>
         <Text style={styles.mapTitle}>Legend</Text>
         {Object.entries(diseaseColors).map(([key, color]) => (
@@ -115,24 +109,9 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
   },
-  toggleButtonContainer: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
-    backgroundColor: '#2563EB',
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    borderRadius: 6,
-    zIndex: 10,
-  },
-  toggleButtonText: {
-    color: 'white',
-    fontWeight: 'bold',
-    fontSize: 10,
-  },
   mapOverlay: {
     position: 'absolute',
-    top: 40,
+    top: 10,
     right: 8,
     backgroundColor: 'rgba(0,0,0,0.7)',
     padding: 8,
