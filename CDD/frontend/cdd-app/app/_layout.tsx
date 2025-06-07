@@ -1,58 +1,74 @@
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { useFonts } from 'expo-font';
-import { Stack } from 'expo-router';
+import { Slot } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
-import { supabase } from '@/lib/supabase';
-
+import Toast from 'react-native-toast-message';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { useEffect, useState } from 'react';
+import { View, ActivityIndicator } from 'react-native';
+import { supabase } from '@/lib/supabase';
+import AuthFlowScreen from '../app/screens/AuthFlowScreen'; // Confirm this path is correct
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
+
   const [loaded] = useFonts({
     SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
   });
 
-  const [isReady, setIsReady] = useState(false);
+  const [session, setSession] = useState(null);
+  const [checkingSession, setCheckingSession] = useState(true);
+  const [authComplete, setAuthComplete] = useState(false);
 
-    useEffect(() => {
-      const restoreSession = async () => {
-        const {
-          data: { session },
-          error,
-        } = await supabase.auth.getSession();
+  // ✅ Check session on app load
+  useEffect(() => {
+    const initSession = async () => {
+      const { data, error } = await supabase.auth.getSession();
+      setSession(data.session);
+      setCheckingSession(false);
+      if (data.session) setAuthComplete(true); // Set authComplete if session is valid
+    };
 
-        if (error) {
-          console.log('Error restoring session:', error.message);
-        } else if (!session) {
-          console.log('No session found');
-        } else {
-          console.log('Session restored:', session.user.email);
-        }
+    initSession();
 
-        setIsReady(true); // continue rendering app
-      };
+    // ✅ Listen to auth changes
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, newSession) => {
+      setSession(newSession);
+      if (newSession) setAuthComplete(true);
+      else setAuthComplete(false);
+    });
 
-      restoreSession();
-    }, []);
+    return () => {
+      listener?.subscription?.unsubscribe();
+    };
+  }, []);
 
-  if (!isReady) {
-    return null; // or splash screen
-  }
-
-  if (!loaded) {
-    // Async font loading only occurs in development.
-    return null;
+  if (!loaded || checkingSession) {
+    return (
+      <View style={{ flex: 1, backgroundColor: '#121212', justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator size="large" color="#4ECDC4" />
+      </View>
+    );
   }
 
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="+not-found" />
-      </Stack>
+      {session && authComplete ? (
+        <Slot /> // 🟢 App content (user is signed in)
+      ) : (
+        <AuthFlowScreen
+          onComplete={async () => {
+            const { data } = await supabase.auth.getSession();
+            if (data.session) {
+              setSession(data.session);
+              setAuthComplete(true); // 🟢 Complete auth
+            }
+          }}
+        />
+      )}
       <StatusBar style="auto" />
+      <Toast />
     </ThemeProvider>
   );
 }

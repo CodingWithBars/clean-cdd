@@ -10,6 +10,7 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import ProfileSetupForm from './ProfileSetupForm';
 import { Feather } from '@expo/vector-icons';
+import { supabase } from '@/lib/supabase';
 
 const ProfileSection = () => {
   const [userInfo, setUserInfo] = useState(null);
@@ -22,6 +23,8 @@ const ProfileSection = () => {
         const storedUser = await AsyncStorage.getItem('userInfo');
         if (storedUser) {
           setUserInfo(JSON.parse(storedUser));
+        } else {
+          setShowModal(true); // No user info — show profile modal
         }
       } catch (error) {
         console.log('Error loading user data:', error);
@@ -34,7 +37,7 @@ const ProfileSection = () => {
 
   const handleProfileSaved = (data) => {
     setUserInfo(data);
-    setShowModal(false); // Close modal after saving
+    setShowModal(false);
   };
 
   const initials = (() => {
@@ -46,7 +49,7 @@ const ProfileSection = () => {
 
   const fullLocation = [
     userInfo?.municipality,
-    userInfo?.region || 'Davao Region',
+    userInfo?.region || 'Davao Oriental',
     userInfo?.barangay,
   ]
     .filter(Boolean)
@@ -61,47 +64,57 @@ const ProfileSection = () => {
   }
 
   return (
-    <>
-      {userInfo ? (
-        <View style={styles.userHeader}>
-          <View style={styles.placeholderAvatar}>
-            <Text style={styles.avatarInitial}>{initials}</Text>
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.welcomeText}>Welcome, {userInfo.name}</Text>
-            <Text style={styles.locationText}>{fullLocation}</Text>
-          </View>
-          <TouchableOpacity onPress={() => setShowModal(true)} style={styles.iconButton}>
-            <Feather name="edit-2" size={20} color="#aaa" />
-          </TouchableOpacity>
+  <>
+    {userInfo && (
+      <View style={styles.userHeader}>
+        <View style={styles.placeholderAvatar}>
+          <Text style={styles.avatarInitial}>
+            {(() => {
+              const parts = userInfo.name.trim().split(' ');
+              const first = parts[0]?.charAt(0).toUpperCase() || '';
+              const second = parts[1]?.charAt(0).toUpperCase() || '';
+              return (first + second) || '?';
+            })()}
+          </Text>
         </View>
-      ) : (
-        // If no userInfo yet, show form directly
-        <ProfileSetupForm onProfileSaved={handleProfileSaved} />
-      )}
+        <View style={{ flex: 1 }}>
+          <Text style={styles.welcomeText}>Welcome, {userInfo.name}</Text>
+          <Text style={styles.locationText}>
+            {[
+              userInfo.municipality,
+              userInfo.region || 'Davao Oriental',
+              userInfo.barangay,
+            ]
+              .filter(Boolean)
+              .join(', ')}
+          </Text>
+        </View>
+        <TouchableOpacity onPress={() => setShowModal(true)} style={styles.iconButton}>
+          <Feather name="edit-2" size={20} color="#aaa" />
+        </TouchableOpacity>
+      </View>
+    )}
 
-      {/* Modal for editing profile */}
-      <Modal
-        visible={showModal}
-        animationType="slide"
-        presentationStyle="formSheet"
-      >
-        <View style={styles.modalContainer}>
-          <TouchableOpacity style={styles.closeButton} onPress={() => setShowModal(false)}>
-            <Feather name="x" size={24} color="#fff" />
-          </TouchableOpacity>
-          <ProfileSetupForm
-            existingData={userInfo}          // 👈 pre-fill the form
-            onCancel={() => setShowModal(false)}  // 👈 handle cancel without saving
-            onProfileSaved={(data) => {
-              setUserInfo(data);
-              setShowModal(false);
-            }}
-          />
-        </View>
-      </Modal>
-    </>
-  );
+    {/* Modal for profile setup */}
+    <Modal
+      visible={showModal}
+      animationType="slide"
+      presentationStyle="formSheet"
+    >
+      <View style={styles.modalContainer}>
+        <TouchableOpacity style={styles.closeButton} onPress={() => setShowModal(false)}>
+          <Feather name="x" size={24} color="#fff" />
+        </TouchableOpacity>
+        <ProfileSetupForm
+          existingData={userInfo}
+          onCancel={() => setShowModal(false)}
+          onProfileSaved={handleProfileSaved}
+        />
+      </View>
+    </Modal>
+  </>
+);
+
 };
 
 const styles = StyleSheet.create({
@@ -151,30 +164,6 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-end',
     padding: 16,
   },
-  buttonRow: {
-  flexDirection: 'row',
-  justifyContent: 'space-between',
-  marginTop: 20,
-  paddingHorizontal: 20,
-},
-cancelButton: {
-  padding: 10,
-  backgroundColor: '#444',
-  borderRadius: 6,
-},
-saveButton: {
-  padding: 10,
-  backgroundColor: '#28a745',
-  borderRadius: 6,
-},
-cancelText: {
-  color: '#fff',
-},
-saveText: {
-  color: '#fff',
-  fontWeight: 'bold',
-},
-
 });
 
 export default ProfileSection;

@@ -1,27 +1,63 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
   TextInput,
-  TouchableOpacity,
-  Alert,
   StyleSheet,
+  Alert,
+  ActivityIndicator,
+  TouchableOpacity,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import * as Location from 'expo-location';
 import { supabase } from '../lib/supabase';
-import { Feather } from '@expo/vector-icons';
 
-const UserRegistration = () => {
-  const router = useRouter();
+const RegistrationForm = ({ onRegistered, onCancel }) => {
+  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
+  const [municipality, setMunicipality] = useState('');
+  const [barangay, setBarangay] = useState('');
+  const [region, setRegion] = useState('');
+  const [country, setCountry] = useState('');
+  const [street, setStreet] = useState('');
   const [loading, setLoading] = useState(false);
+  const [locationLoading, setLocationLoading] = useState(false);
 
-  const handleSignUp = async () => {
-    if (!email || !password || !confirmPassword) {
-      Alert.alert('Missing Fields', 'Please complete all fields.');
+  useEffect(() => {
+    fetchLocation();
+  }, []);
+
+  const fetchLocation = async () => {
+    setLocationLoading(true);
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission denied', 'Location is required to set up your profile.');
+        return;
+      }
+
+      const location = await Location.getCurrentPositionAsync({});
+      const geocode = await Location.reverseGeocodeAsync(location.coords);
+      if (geocode.length > 0) {
+        const place = geocode[0];
+        setMunicipality(place.city || place.subregion || '');
+        setBarangay(place.name || '');
+        setRegion(place.region || '');
+        setCountry(place.country || '');
+        setStreet(place.street || '');
+      }
+    } catch (error) {
+      console.error('Location error:', error);
+      Alert.alert('Error', 'Failed to retrieve location.');
+    } finally {
+      setLocationLoading(false);
+    }
+  };
+
+  const handleRegister = async () => {
+    if (!name || !email || !password || !confirmPassword) {
+      Alert.alert('Incomplete', 'Please fill out all fields.');
       return;
     }
 
@@ -32,169 +68,180 @@ const UserRegistration = () => {
 
     setLoading(true);
 
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        emailRedirectTo: 'cddapp://verified',
-      },
-    });
+    try {
+      const { data, error: signUpError } = await supabase.auth.signUp({
+        email,
+        password,
+      });
 
-    setLoading(false);
+      if (signUpError) throw signUpError;
 
-    if (error) {
-      console.error('Supabase sign-up error:', error.message);
-      Alert.alert('Registration Failed', error.message);
-      return;
+      const user = data?.user;
+      if (!user) throw new Error('No user returned after signup.');
+
+      const profileData = {
+        user_id: user.id,
+        name,
+        email,
+        municipality,
+        barangay,
+        region,
+        country,
+        street,
+      };
+
+      const { error: insertError } = await supabase.from('user_profiles').insert([profileData]);
+
+      if (insertError) throw insertError;
+
+      onRegistered(profileData);
+    } catch (error) {
+      console.error('Registration error:', error);
+      Alert.alert('Error', error.message || 'Registration failed. Please try again.');
+    } finally {
+      setLoading(false);
     }
-
-    Alert.alert(
-      'Registration Successful',
-      '6-digit OTP sent to your email. Use it to verify your account.',
-      [
-        {
-          text: 'Verify Email',
-          onPress: () => {
-            router.push({
-              pathname: '/ConfirmEmail',
-              params: { email },
-            });
-          },
-        },
-      ]
-    );
-
   };
+
+  if (locationLoading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#fff" />
+        <Text style={{ color: '#aaa', marginTop: 10 }}>Getting your location...</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Register</Text>
+      <Text style={styles.title}>Create Account</Text>
+
+      <TextInput
+        style={styles.input}
+        placeholder="Full Name"
+        placeholderTextColor="#aaa"
+        value={name}
+        onChangeText={setName}
+      />
 
       <TextInput
         style={styles.input}
         placeholder="Email"
+        placeholderTextColor="#aaa"
         keyboardType="email-address"
         autoCapitalize="none"
-        onChangeText={setEmail}
         value={email}
+        onChangeText={setEmail}
       />
 
-      <View style={styles.passwordContainer}>
-        <TextInput
-          style={styles.passwordInput}
-          placeholder="Password"
-          secureTextEntry={!showPassword}
-          onChangeText={setPassword}
-          value={password}
-        />
-        <TouchableOpacity onPress={() => setShowPassword((prev) => !prev)}>
-          <Feather
-            name={showPassword ? 'eye' : 'eye-off'}
-            size={20}
-            color="#666"
-          />
-        </TouchableOpacity>
+      <TextInput
+        style={styles.input}
+        placeholder="Password"
+        placeholderTextColor="#aaa"
+        secureTextEntry
+        value={password}
+        onChangeText={setPassword}
+      />
+
+      <TextInput
+        style={styles.input}
+        placeholder="Confirm Password"
+        placeholderTextColor="#aaa"
+        secureTextEntry
+        value={confirmPassword}
+        onChangeText={setConfirmPassword}
+      />
+
+      <View style={styles.locationPreview}>
+        <Text style={styles.label}>Detected Location:</Text>
+        <Text style={styles.locationText}>
+          {barangay}, {municipality}
+        </Text>
+        {region ? <Text style={styles.locationText}>{region}</Text> : null}
+        {country ? <Text style={styles.locationText}>{country}</Text> : null}
+        {street ? <Text style={styles.locationText}>Street: {street}</Text> : null}
       </View>
 
-      <View style={styles.passwordContainer}>
-        <TextInput
-          style={styles.passwordInput}
-          placeholder="Confirm Password"
-          secureTextEntry={!showPassword}
-          onChangeText={setConfirmPassword}
-          value={confirmPassword}
-        />
-        <TouchableOpacity onPress={() => setShowPassword((prev) => !prev)}>
-          <Feather
-            name={showPassword ? 'eye' : 'eye-off'}
-            size={20}
-            color="#666"
-          />
+      <View style={styles.buttonRow}>
+        <TouchableOpacity style={styles.cancelButton} onPress={onCancel}>
+          <Text style={styles.cancelText}>Cancel</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.saveButton, loading && { backgroundColor: '#555' }]}
+          onPress={handleRegister}
+          disabled={loading}
+        >
+          <Text style={styles.saveText}>{loading ? 'Registering...' : 'Register'}</Text>
         </TouchableOpacity>
       </View>
-
-      <TouchableOpacity
-        style={styles.button}
-        onPress={handleSignUp}
-        disabled={loading}
-      >
-        <Text style={styles.buttonText}>
-          {loading ? 'Registering...' : 'Register'}
-        </Text>
-      </TouchableOpacity>
-      <TouchableOpacity
-        style={styles.loginLink}
-        onPress={() => router.replace('/UserLogin')}
-      >
-        <Text style={styles.loginLinkText}>
-          Already have an account? <Text style={styles.loginLinkHighlight}>Sign in</Text>
-        </Text>
-      </TouchableOpacity>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
-    padding: 24,
-    justifyContent: 'center',
-    backgroundColor: '#fff',
+    marginTop: 60,
+    paddingHorizontal: 20,
+    paddingBottom: 40,
   },
   title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    marginBottom: 32,
-    textAlign: 'center',
-  },
-  input: {
-    height: 48,
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    marginBottom: 16,
-  },
-  passwordContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    marginBottom: 16,
-  },
-  passwordInput: {
-    flex: 1,
-    height: 48,
-  },
-  button: {
-    backgroundColor: '#2f80ed',
-    paddingVertical: 14,
-    borderRadius: 10,
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  buttonText: {
+    fontSize: 20,
     color: '#fff',
-    fontSize: 16,
+    marginBottom: 20,
     fontWeight: '600',
   },
-  loginLink: {
-  marginTop: 16,
-  alignItems: 'center',
+  input: {
+    borderColor: '#555',
+    borderWidth: 1,
+    backgroundColor: '#222',
+    color: '#fff',
+    padding: 10,
+    borderRadius: 8,
+    marginBottom: 20,
   },
-
-  loginLinkText: {
-    fontSize: 14,
-    color: '#555',
+  locationPreview: {
+    marginBottom: 20,
   },
-
-  loginLinkHighlight: {
-    color: '#2f80ed',
+  label: {
+    color: '#bbb',
+    marginBottom: 5,
+  },
+  locationText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  buttonRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 20,
+  },
+  cancelButton: {
+    padding: 10,
+    backgroundColor: '#444',
+    borderRadius: 6,
+    width: '45%',
+    alignItems: 'center',
+  },
+  saveButton: {
+    padding: 10,
+    backgroundColor: '#28a745',
+    borderRadius: 6,
+    width: '45%',
+    alignItems: 'center',
+  },
+  cancelText: {
+    color: '#fff',
+  },
+  saveText: {
+    color: '#fff',
     fontWeight: 'bold',
   },
-
+  loadingContainer: {
+    flex: 1,
+    paddingTop: 100,
+    alignItems: 'center',
+  },
 });
 
-export default UserRegistration;
+export default RegistrationForm;

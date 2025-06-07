@@ -11,24 +11,33 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Location from 'expo-location';
 import { supabase } from '../lib/supabase';
-import uuid from 'react-native-uuid';
 
-const ProfileSetupForm = ({ existingData = {}, onProfileSaved, onCancel }) => {
-  const [name, setName] = useState(existingData.name || '');
-  const [email, setEmail] = useState(existingData.email || '');
-  const [municipality, setMunicipality] = useState(existingData.municipality || '');
-  const [barangay, setBarangay] = useState(existingData.barangay || '');
-  const [region, setRegion] = useState(existingData.region || '');
-  const [country, setCountry] = useState(existingData.country || '');
-  const [street, setStreet] = useState(existingData.street || '');
+const ProfileSetupForm = ({ onProfileSaved, onCancel }) => {
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [municipality, setMunicipality] = useState('');
+  const [barangay, setBarangay] = useState('');
   const [loading, setLoading] = useState(false);
   const [locationLoading, setLocationLoading] = useState(false);
 
   useEffect(() => {
-    if (!existingData?.municipality) {
-      fetchLocation();
-    }
+    getUserEmail();
+    fetchLocation();
   }, []);
+
+  const getUserEmail = async () => {
+    const {
+      data: { user },
+      error,
+    } = await supabase.auth.getUser();
+
+    if (error || !user) {
+      Alert.alert('Error', 'Could not retrieve user info.');
+      return;
+    }
+
+    setEmail(user.email || '');
+  };
 
   const fetchLocation = async () => {
     setLocationLoading(true);
@@ -46,9 +55,6 @@ const ProfileSetupForm = ({ existingData = {}, onProfileSaved, onCancel }) => {
         const place = geocode[0];
         setMunicipality(place.city || place.subregion || '');
         setBarangay(place.name || '');
-        setRegion(place.region || '');
-        setCountry(place.country || '');
-        setStreet(place.street || '');
       }
     } catch (error) {
       console.error('Location error:', error);
@@ -58,82 +64,69 @@ const ProfileSetupForm = ({ existingData = {}, onProfileSaved, onCancel }) => {
     }
   };
 
-    const handleSubmit = async () => {
-        if (!name || !email || !municipality || !barangay) {
-            Alert.alert('Incomplete', 'Please fill out all required fields.');
-            return;
-        }
+  const handleSubmit = async () => {
+  if (!name || !email || !municipality || !barangay) {
+    Alert.alert('Incomplete', 'Please fill out all required fields.');
+    return;
+  }
 
-        setLoading(true);
+  setLoading(true);
+  try {
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
 
-        try {
-            const userData = {
-            user_id: existingData.user_id || uuid.v4(),
-            name,
-            email,
-            municipality,
-            barangay,
-            region,
-            country,
-            street,
-            };
+    if (userError || !user) {
+      throw new Error('User session not found.');
+    }
 
-            // Check if email already exists
-            const { data: existingUser, error: lookupError } = await supabase
-            .from('users')
-            .select('user_id')
-            .eq('email', email)
-            .single();
+    const userId = user.id; // Supabase Auth UID
 
-            if (lookupError && lookupError.code !== 'PGRST116') {
-            // PGRST116 = No rows found
-            throw lookupError;
-            }
+    const { error: profileError } = await supabase.from('user_profiles').insert([
+      {
+        user_id: userId, // must match auth.uid()
+        name,
+        email,
+        municipality,
+        barangay,
+      },
+    ]);
 
-            let response;
-            if (existingUser) {
-            // Update existing user
-            response = await supabase
-                .from('users')
-                .update(userData)
-                .eq('email', email);
-            } else {
-            // Insert new user
-            response = await supabase.from('users').insert([userData]);
-            }
+    if (profileError) throw profileError;
 
-            if (response.error) {
-            throw response.error;
-            }
-
-            await AsyncStorage.setItem('userInfo', JSON.stringify(userData));
-            onProfileSaved(userData);
-        } catch (error) {
-            console.error('Profile save error:', error);
-
-            if (error.code === '23505') {
-                Alert.alert('Email Already Used', 'This email is already associated with another account. Please use a different email or update the existing one.');
-            } else {
-                Alert.alert('Error', error.message || 'Something went wrong. Please try again.');
-            }
-        }
+    const localUser = {
+      user_id: userId,
+      name,
+      email,
+      municipality,
+      barangay,
     };
+
+    await AsyncStorage.setItem('userInfo', JSON.stringify(localUser));
+
+    onProfileSaved(localUser);
+  } catch (error) {
+    console.error('Profile error:', error);
+    Alert.alert('Error', error.message || 'Failed to save profile.');
+  } finally {
+    setLoading(false);
+  }
+};
 
 
   if (locationLoading) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#fff" />
-        <Text style={{ color: '#aaa', marginTop: 10 }}>Fetching your location...</Text>
+        <Text style={{ color: '#aaa', marginTop: 10 }}>Fetching your location…</Text>
       </View>
     );
   }
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>
-        {existingData.name ? 'Edit Your Profile' : 'Set Up Your Profile'}
-      </Text>
+      <Text style={styles.title}>Set Up Your Profile</Text>
 
       <TextInput
         style={styles.input}
@@ -144,12 +137,12 @@ const ProfileSetupForm = ({ existingData = {}, onProfileSaved, onCancel }) => {
       />
 
       <TextInput
-        style={styles.input}
+        style={[styles.input, { backgroundColor: '#333' }]}
         placeholder="Your Email"
         placeholderTextColor="#aaa"
         value={email}
-        keyboardType="email-address"
-        onChangeText={setEmail}
+        editable={false}
+        selectTextOnFocus={false}
       />
 
       <View style={styles.locationPreview}>
@@ -157,9 +150,6 @@ const ProfileSetupForm = ({ existingData = {}, onProfileSaved, onCancel }) => {
         <Text style={styles.locationText}>
           {barangay}, {municipality}
         </Text>
-        {region ? <Text style={styles.locationText}>{region}</Text> : null}
-        {country ? <Text style={styles.locationText}>{country}</Text> : null}
-        {street ? <Text style={styles.locationText}>Street: {street}</Text> : null}
       </View>
 
       <View style={styles.buttonRow}>
@@ -171,7 +161,7 @@ const ProfileSetupForm = ({ existingData = {}, onProfileSaved, onCancel }) => {
           onPress={handleSubmit}
           disabled={loading}
         >
-          <Text style={styles.saveText}>{loading ? 'Saving...' : 'Save'}</Text>
+          <Text style={styles.saveText}>{loading ? 'Saving…' : 'Save'}</Text>
         </TouchableOpacity>
       </View>
     </View>

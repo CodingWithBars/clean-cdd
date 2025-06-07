@@ -70,6 +70,8 @@ export default function HomeScreen() {
   }
 
   return (
+    <>
+    
     <SafeAreaView style={{ flex: 1, backgroundColor: '#121212' }}>
       <ProfileSection />
 
@@ -94,5 +96,6 @@ export default function HomeScreen() {
         </View>
       </ScrollView>
     </SafeAreaView>
+    </>
   );
 }
