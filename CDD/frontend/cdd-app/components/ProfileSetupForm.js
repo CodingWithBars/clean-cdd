@@ -10,35 +10,17 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Location from 'expo-location';
-import { supabase } from '../lib/supabase';
 
 const ProfileSetupForm = ({ onProfileSaved, onCancel }) => {
   const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
   const [municipality, setMunicipality] = useState('');
   const [barangay, setBarangay] = useState('');
   const [loading, setLoading] = useState(false);
   const [locationLoading, setLocationLoading] = useState(false);
 
   useEffect(() => {
-    getUserEmail();
     fetchLocation();
   }, []);
-
-  const getUserEmail = async () => {
-    const {
-      data: { user },
-      error,
-    } = await supabase.auth.getUser();
-
-    if (!user) {
-      Alert.alert('Authentication Error', 'Please log in to scan.');
-      setLoading(false);
-      return;
-    }
-
-    setEmail(user.email || '');
-  };
 
   const fetchLocation = async () => {
     setLocationLoading(true);
@@ -66,54 +48,28 @@ const ProfileSetupForm = ({ onProfileSaved, onCancel }) => {
   };
 
   const handleSubmit = async () => {
-  if (!name || !email || !municipality || !barangay) {
-    Alert.alert('Incomplete', 'Please fill out all required fields.');
-    return;
-  }
-
-  setLoading(true);
-  try {
-    const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser();
-
-    if (userError || !user) {
-      throw new Error('User session not found.');
+    if (!name || !municipality || !barangay) {
+      Alert.alert('Incomplete', 'Please fill out all required fields.');
+      return;
     }
 
-    const userId = user.id; // Supabase Auth UID
-
-    const { error: profileError } = await supabase.from('user_profiles').insert([
-      {
-        user_id: userId, // must match auth.uid()
+    setLoading(true);
+    try {
+      const userProfile = {
         name,
-        email,
         municipality,
         barangay,
-      },
-    ]);
+      };
 
-    if (profileError) throw profileError;
-
-    const localUser = {
-      user_id: userId,
-      name,
-      email,
-      municipality,
-      barangay,
-    };
-
-    await AsyncStorage.setItem('userInfo', JSON.stringify(localUser));
-
-    onProfileSaved(localUser);
-  } catch (error) {
-    console.error('Profile error:', error);
-    Alert.alert('Error', error.message || 'Failed to save profile.');
-  } finally {
-    setLoading(false);
-  }
-};
+      await AsyncStorage.setItem('userInfo', JSON.stringify(userProfile));
+      onProfileSaved(userProfile);
+    } catch (error) {
+      console.error('Save error:', error);
+      Alert.alert('Error', 'Failed to save profile.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   if (locationLoading) {
     return (
@@ -130,19 +86,10 @@ const ProfileSetupForm = ({ onProfileSaved, onCancel }) => {
 
       <TextInput
         style={styles.input}
-        placeholder="Your Name"
+        placeholder="Your Full Name"
         placeholderTextColor="#aaa"
         value={name}
         onChangeText={setName}
-      />
-
-      <TextInput
-        style={[styles.input, { backgroundColor: '#333' }]}
-        placeholder="Your Email"
-        placeholderTextColor="#aaa"
-        value={email}
-        editable={false}
-        selectTextOnFocus={false}
       />
 
       <View style={styles.locationPreview}>

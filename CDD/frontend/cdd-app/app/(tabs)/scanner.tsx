@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -12,38 +12,57 @@ import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../../lib/supabase';
-import 'react-native-get-random-values';
 import { v4 as uuidv4 } from 'uuid';
-import * as FileSystem from 'expo-file-system';
 import { saveScanToSupabase } from '../../lib/saveScanToSupabase';
 
 export default function ScannerScreen() {
   const [image, setImage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [userProfile, setUserProfile] = useState<any>(null);
   const router = useRouter();
 
-  const handleImageFromCamera = async () => {
-    const result = await ImagePicker.launchCameraAsync({
+  useEffect(() => {
+    const loadUserInfo = async () => {
+      try {
+        const cached = await AsyncStorage.getItem('user_profile');
+        if (cached) {
+          setUserProfile(JSON.parse(cached));
+          return;
+        }
+
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
+        const { data: profile, error } = await supabase
+          .from('user_profiles')
+          .select('*')
+          .eq('id', user.id)
+          .single();
+
+        if (error) throw error;
+        setUserProfile(profile);
+        await AsyncStorage.setItem('user_profile', JSON.stringify(profile));
+      } catch (err: any) {
+        Alert.alert('User Info Error', err.message);
+      }
+    };
+
+    loadUserInfo();
+  }, []);
+
+  const handleImagePick = async (fromCamera: boolean) => {
+    const picker = fromCamera ? ImagePicker.launchCameraAsync : ImagePicker.launchImageLibraryAsync;
+    const result = await picker({
       allowsEditing: true,
       quality: 0.7,
     });
 
     if (!result.canceled && result.assets.length > 0) {
-      setImage(result.assets[0].uri);
-      handlePrediction(result.assets[0].uri);
-    }
-  };
-
-  const handleImageFromGallery = async () => {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      allowsEditing: true,
-      quality: 0.7,
-    });
-
-    if (!result.canceled && result.assets.length > 0) {
-      setImage(result.assets[0].uri);
-      handlePrediction(result.assets[0].uri);
+      const uri = result.assets[0].uri;
+      setImage(uri);
+      handlePrediction(uri);
     }
   };
 
@@ -51,64 +70,36 @@ export default function ScannerScreen() {
     try {
       setLoading(true);
 
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      if (!user) {
-        Alert.alert('Authentication Error', 'Please log in to scan.');
-        setLoading(false);
+      if (!userProfile) {
+        Alert.alert('Missing Profile', 'User profile not loaded.');
         return;
       }
 
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert('Permission Denied', 'We need location to tag this scan.');
-        setLoading(false);
+        Alert.alert('Permission Denied', 'Location is required for scan tagging.');
         return;
       }
 
       const location = await Location.getCurrentPositionAsync({});
-      if (!location || !location.coords) {
-        Alert.alert('Location Error', 'Unable to retrieve your current location. Please check if location services are enabled.');
-        setLoading(false);
+      if (!location?.coords) {
+        Alert.alert('Location Error', 'Unable to get current position.');
         return;
       }
 
-      const fileExt = imageUri.split('.').pop();
-      const fileName = `${uuidv4()}.${fileExt}`;
-      const filePath = `${FileSystem.documentDirectory}${fileName}`;
-
-      await FileSystem.copyAsync({ from: imageUri, to: filePath });
-      const fileData = await FileSystem.readAsStringAsync(filePath, {
-        encoding: FileSystem.EncodingType.Base64,
-      });
-
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from('scan-images')
-        .upload(fileName, Buffer.from(fileData, 'base64'), {
-          contentType: 'image/jpeg',
-          upsert: true,
-        });
-
-      if (uploadError) throw uploadError;
-
-      const { data: urlData } = supabase.storage
-        .from('scan-images')
-        .getPublicUrl(fileName);
-
-      const imageUrl = urlData?.publicUrl;
-
       const formData = new FormData();
+      const fileName = `${uuidv4()}.jpg`;
+
       formData.append('file', {
         uri: imageUri,
         name: fileName,
         type: 'image/jpeg',
       } as any);
+
       formData.append('latitude', String(location.coords.latitude));
       formData.append('longitude', String(location.coords.longitude));
 
-      const response = await fetch('http://192.168.2.7:8080/predict', {
+      const response = await fetch('https://dc3c-49-149-99-86.ngrok-free.app/predict', {
         method: 'POST',
         body: formData,
         headers: {
@@ -116,39 +107,26 @@ export default function ScannerScreen() {
         },
       });
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Prediction failed: ${errorText}`);
-      }
-
+      if (!response.ok) throw new Error('Prediction failed.');
       const result = await response.json();
 
       await saveScanToSupabase({
-        imageUrl,
+        imageUrl: imageUri,
         prediction: result.prediction,
         confidence: result.confidence,
         latitude: location.coords.latitude,
         longitude: location.coords.longitude,
+        name: userProfile.name,
+        municipality: userProfile.municipality,
+        barangay: userProfile.barangay,
       });
-
-      const { error: dbError } = await supabase.from('scans').insert({
-        user_id: user.id,
-        image_url: imageUrl,
-        prediction: result.prediction,
-        confidence: result.confidence,
-        latitude: location.coords.latitude,
-        longitude: location.coords.longitude,
-        created_at: new Date().toISOString(),
-      });
-
-      if (dbError) throw dbError;
 
       router.replace({
         pathname: '/result',
         params: {
           prediction: result.prediction,
           confidence: result.confidence,
-          imageUrl,
+          imageUrl: imageUri, // Optionally swap with final hosted URL
           latitude: location.coords.latitude,
           longitude: location.coords.longitude,
         },
@@ -176,12 +154,12 @@ export default function ScannerScreen() {
       </View>
 
       <View style={styles.buttonContainer}>
-        <TouchableOpacity style={styles.button} onPress={handleImageFromCamera}>
+        <TouchableOpacity style={styles.button} onPress={() => handleImagePick(true)}>
           <Ionicons name="camera-outline" size={20} color="#121212" />
           <Text style={styles.buttonText}>Take a Photo</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.button} onPress={handleImageFromGallery}>
+        <TouchableOpacity style={styles.button} onPress={() => handleImagePick(false)}>
           <Ionicons name="image-outline" size={20} color="#121212" />
           <Text style={styles.buttonText}>Upload from Gallery</Text>
         </TouchableOpacity>
@@ -191,7 +169,6 @@ export default function ScannerScreen() {
     </View>
   );
 }
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,

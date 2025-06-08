@@ -1,6 +1,7 @@
 import { Tabs } from 'expo-router';
 import React from 'react';
 import { Platform } from 'react-native';
+import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
 
 import { HapticTab } from '@/components/HapticTab';
 import { IconSymbol } from '@/components/ui/IconSymbol';
@@ -14,44 +15,52 @@ export default function TabLayout() {
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
-        headerShown: false,
-        tabBarButton: HapticTab,
-        tabBarBackground: TabBarBackground,
-        tabBarStyle: Platform.select({
-          ios: {
-            // Use a transparent background on iOS to show the blur effect
-            position: 'absolute',
-          },
-          default: {},
-        }),
-      }}>
+        tabBarStyle: {
+          backgroundColor: '#121212',
+          borderTopColor: '#333',
+        },
+        tabBarActiveTintColor: '#00BFFF',
+        tabBarInactiveTintColor: '#666',
+        headerStyle: {
+          backgroundColor: '#121212',
+        },
+        headerTintColor: '#FFF',
+      }}
+    >
       <Tabs.Screen
         name="index"
         options={{
           title: 'Home',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="house.fill" color={color} />,
+          tabBarIcon: ({ color }) => (
+            <FontAwesome5 name="home" size={24} color={color} />
+          ),
         }}
       />
       <Tabs.Screen
         name="scanner"
         options={{
-          title: 'Scan',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="camera.fill" color={color} />,
+          title: 'Scanner',
+          tabBarIcon: ({ color }) => (
+            <FontAwesome5 name="camera" size={24} color={color} />
+          ),
         }}
       />
       <Tabs.Screen
         name="result"
         options={{
           title: 'Results',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="chart.bar.fill" color={color} />,
+          tabBarIcon: ({ color }) => (
+            <FontAwesome5 name="chart-bar" size={24} color={color} />
+          ),
         }}
       />
       <Tabs.Screen
         name="history"
         options={{
           title: 'History',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="clock.fill" color={color} />,
+          tabBarIcon: ({ color }) => (
+            <FontAwesome5 name="history" size={24} color={color} />
+          ),
         }}
       />
     </Tabs>

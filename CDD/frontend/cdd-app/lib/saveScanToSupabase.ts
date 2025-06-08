@@ -1,5 +1,3 @@
-// lib/saveScanToSupabase.ts
-
 import { supabase } from './supabase';
 
 export const saveScanToSupabase = async ({
@@ -8,29 +6,42 @@ export const saveScanToSupabase = async ({
   confidence,
   latitude,
   longitude,
+  name,
+  municipality,
+  barangay,
 }: {
   imageUrl: string;
   prediction: string;
   confidence: number;
   latitude: number;
   longitude: number;
+  name: string;
+  municipality: string;
+  barangay: string;
 }) => {
-  const userResult = await supabase.auth.getUser();
-  const user = userResult.data?.user;
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
 
-  if (!user) {
+  if (authError || !user) {
     throw new Error('User not authenticated. Please log in.');
   }
 
-  const { error } = await supabase.from('scans').insert({
-    user_id: user.id,
-    image_url: imageUrl,
-    prediction,
-    confidence,
-    latitude,
-    longitude,
-    created_at: new Date().toISOString(),
-  });
+  const { error } = await supabase.from('scans').insert([
+    {
+      user_id: user.id,
+      image_url: imageUrl,
+      prediction,
+      confidence,
+      latitude,
+      longitude,
+      name,
+      municipality,
+      barangay,
+      created_at: new Date().toISOString(),
+    },
+  ]);
 
   if (error) throw error;
 };
