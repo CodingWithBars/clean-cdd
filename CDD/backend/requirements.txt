@@ -1,5 +1,5 @@
 fastapi
-uvicorn[standard]
+uvicorn
 python-multipart
 Pillow
 numpy
@@ -7,3 +7,7 @@ tensorflow
 requests
 python-dotenv
 httpx
+click
+h11
+httptools
+watchgod
