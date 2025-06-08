@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "cdd-app",
+    "name": "Chicken Disease Detector",
     "slug": "cdd-app",
     "version": "1.0.0",
     "orientation": "portrait",

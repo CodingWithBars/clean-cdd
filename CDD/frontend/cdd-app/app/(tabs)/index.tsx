@@ -1,3 +1,4 @@
+import { Buffer } from 'buffer';
 import React, { useEffect, useState, useLayoutEffect } from 'react';
 import {
   View,
@@ -60,6 +61,10 @@ export default function HomeScreen() {
     const interval = setInterval(fetchData, 10000);
     return () => clearInterval(interval);
   }, []);
+
+  if (typeof global.Buffer === 'undefined') {
+    global.Buffer = Buffer;
+  }
 
   if (loading) {
     return (

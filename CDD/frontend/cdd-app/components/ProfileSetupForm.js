@@ -31,8 +31,9 @@ const ProfileSetupForm = ({ onProfileSaved, onCancel }) => {
       error,
     } = await supabase.auth.getUser();
 
-    if (error || !user) {
-      Alert.alert('Error', 'Could not retrieve user info.');
+    if (!user) {
+      Alert.alert('Authentication Error', 'Please log in to scan.');
+      setLoading(false);
       return;
     }
 
@@ -113,7 +114,6 @@ const ProfileSetupForm = ({ onProfileSaved, onCancel }) => {
     setLoading(false);
   }
 };
-
 
   if (locationLoading) {
     return (
