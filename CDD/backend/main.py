@@ -1,21 +1,13 @@
-from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Request
+from fastapi import FastAPI, UploadFile, Form
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
-import os, uuid, shutil
-from dotenv import load_dotenv
+from fastapi.responses import JSONResponse
+from pymongo import MongoClient
+from datetime import datetime
+import shutil, os, uuid
 
-# Load .env
-base_dir = os.path.dirname(os.path.abspath(__file__))
-load_dotenv(os.path.join(base_dir, "..", ".env"))
-
-# Internal imports
-from app.services.model import predict_image
-from app.services.scan_service import save_scan, get_all_scans
-
-# FastAPI instance
 app = FastAPI()
 
-# Allow all CORS (customize this for production)
+# CORS for mobile access
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -24,93 +16,54 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Create uploads folder if not exists
-UPLOAD_FOLDER = "uploads"
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+# Connect to MongoDB
+client = MongoClient("mongodb://localhost:27017/")
+db = client["cdd"]
+scans_col = db["scans"]
 
-# Mount static folder for serving images
-app.mount("/uploads", StaticFiles(directory=UPLOAD_FOLDER), name="uploads")
+UPLOAD_DIR = "uploads"
+os.makedirs(UPLOAD_DIR, exist_ok=True)
 
-
-# Helper to generate full image URL
-def upload_image(request: Request, filename: str) -> str:
-    base_url = str(request.base_url).rstrip("/")
-    return f"{base_url}/uploads/{filename}"
-
+@app.get("/")
+def root():
+    return {"message": "CDD backend running."}
 
 @app.post("/predict")
 async def predict(
-    request: Request,
-    file: UploadFile = File(...),
+    file: UploadFile,
     latitude: float = Form(...),
     longitude: float = Form(...),
     municipality: str = Form(...),
     barangay: str = Form(...),
     user_id: str = Form(...)
 ):
-    try:
-        # Save uploaded file
-        filename = f"{uuid.uuid4().hex}_{file.filename}"
-        file_path = os.path.join(UPLOAD_FOLDER, filename)
+    # Save image
+    ext = os.path.splitext(file.filename)[-1]
+    filename = f"{uuid.uuid4().hex}{ext}"
+    filepath = os.path.join(UPLOAD_DIR, filename)
+    with open(filepath, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
 
-        with open(file_path, "wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
+    # Simulated prediction
+    prediction = "Newcastle Disease"
+    confidence = 0.92
 
-        print(f"📸 Received file: {filename}")
+    # Save to MongoDB
+    scan_data = {
+        "user_id": user_id,
+        "image_url": f"/uploads/{filename}",
+        "prediction": prediction,
+        "confidence": confidence,
+        "latitude": latitude,
+        "longitude": longitude,
+        "municipality": municipality,
+        "barangay": barangay,
+        "created_at": datetime.utcnow()
+    }
+    scans_col.insert_one(scan_data)
 
-        # Run prediction
-        prediction, probabilities = predict_image(file_path)
-        confidence = float(max(probabilities.values()))
-
-        # Generate public URL for the image
-        image_url = upload_image(request, filename)
-
-        # Save scan info to MongoDB
-        save_scan(
-            user_id=user_id,
-            image_url=image_url,
-            prediction=prediction,
-            confidence=confidence,
-            latitude=latitude,
-            longitude=longitude,
-            municipality=municipality,
-            barangay=barangay
-        )
-
-        # Return prediction result
-        return {
-            "prediction": prediction,
-            "confidence": confidence,
-            "image_url": image_url,
-            "latitude": latitude,
-            "longitude": longitude,
-            "municipality": municipality,
-            "barangay": barangay,
-        }
-
-    except Exception as e:
-        print(f"❌ Error in /predict: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@app.get("/")
-def read_root():
-    return {"message": "CDD backend running."}
-
+    return JSONResponse(content={"message": "Scan uploaded", "scan": scan_data})
 
 @app.get("/scans")
 def get_scans():
-    try:
-        return get_all_scans()
-    except Exception as e:
-        print(f"❌ Error in /scans: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@app.get("/history")
-def get_history():
-    try:
-        return get_all_scans()
-    except Exception as e:
-        print(f"❌ Error in /history: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+    return list(scans_col.find({}, {"_id": 0}))

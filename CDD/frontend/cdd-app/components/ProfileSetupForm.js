@@ -21,12 +21,6 @@ const ProfileSetupForm = ({ onProfileSaved, onCancel }) => {
   const [locationLoading, setLocationLoading] = useState(false);
 
   useEffect(() => {
-    if (userProfile) {
-      console.log('User Profile:', userProfile);
-    }
-  }, [userProfile]);
-
-  useEffect(() => {
     fetchLocation();
   }, []);
 

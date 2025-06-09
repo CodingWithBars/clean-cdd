@@ -16,6 +16,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { v4 as uuidv4 } from 'uuid';
 import { saveScanToSupabase } from '../../lib/saveScanToSupabase';
 
+import { uploadScan } from '../../utils/api';
+
 export default function ScannerScreen() {
   const [image, setImage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -81,10 +83,13 @@ export default function ScannerScreen() {
       image: imageUri,
     });
 
-    const response = await fetch('https://dc3c-49-149-99-86.ngrok-free.app/predict', {
+    const response = await fetch('https://0901-2001-4455-6f3-a00-dd29-7ce8-1951-677.ngrok-free.app/predict', {
       method: 'POST',
       body: formData,
     });
+
+    const res = await uploadScan(formData);
+    console.log("Uploaded:", res);
 
     if (!response.ok) throw new Error('Prediction failed.');
     const result = await response.json();
@@ -149,6 +154,7 @@ export default function ScannerScreen() {
     </View>
   );
 }
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,

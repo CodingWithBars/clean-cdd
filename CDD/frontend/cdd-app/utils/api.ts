@@ -16,34 +16,14 @@ const api = axios.create({
   },
 });
 
-export async function getScanLocations() {
-  try {
-    const response = await api.get('/scans');
-    return response.data;
-  } catch (error) {
-    console.error('Error fetching scan locations:', error);
-    throw error;
-  }
-}
-
-export async function getScanHistory() {
-  try {
-    const response = await api.get('/history');
-    return response.data;
-  } catch (error) {
-    console.error('Error fetching scan history:', error);
-    throw error;
-  }
-}
-
 export async function uploadScan(formData) {
-  try {
-    const response = await axios.post(`${API_BASE}/predict`, formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    });
-    return response.data;
-  } catch (error) {
-    console.error('Error uploading scan:', error);
-    throw error;
-  }
+  const response = await axios.post(`${API_BASE}/predict`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+  return response.data;
+}
+
+export async function getScanLocations() {
+  const response = await axios.get(`${API_BASE}/scans`);
+  return response.data;
 }
