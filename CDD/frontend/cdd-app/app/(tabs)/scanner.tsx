@@ -13,7 +13,6 @@ import * as Location from 'expo-location';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { supabase } from '../../lib/supabase';
 import { v4 as uuidv4 } from 'uuid';
 import { saveScanToSupabase } from '../../lib/saveScanToSupabase';
 
@@ -22,35 +21,6 @@ export default function ScannerScreen() {
   const [loading, setLoading] = useState(false);
   const [userProfile, setUserProfile] = useState<any>(null);
   const router = useRouter();
-
-  useEffect(() => {
-    const loadUserInfo = async () => {
-      try {
-        const cached = await AsyncStorage.getItem('user_profile');
-        if (cached) {
-          setUserProfile(JSON.parse(cached));
-          return;
-        }
-
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return;
-
-        const { data: profile, error } = await supabase
-          .from('user_profiles')
-          .select('*')
-          .eq('id', user.id)
-          .single();
-
-        if (error) throw error;
-        setUserProfile(profile);
-        await AsyncStorage.setItem('user_profile', JSON.stringify(profile));
-      } catch (err: any) {
-        Alert.alert('User Info Error', err.message);
-      }
-    };
-
-    loadUserInfo();
-  }, []);
 
   const handleImagePick = async (fromCamera: boolean) => {
     const picker = fromCamera ? ImagePicker.launchCameraAsync : ImagePicker.launchImageLibraryAsync;
@@ -67,76 +37,86 @@ export default function ScannerScreen() {
   };
 
   const handlePrediction = async (imageUri: string) => {
-    try {
-      setLoading(true);
+  try {
+    setLoading(true);
 
-      if (!userProfile) {
-        Alert.alert('Missing Profile', 'User profile not loaded.');
-        return;
-      }
+    if (!userProfile) {
+      Alert.alert('Missing Profile', 'User profile not loaded.');
+      return;
+    }
 
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert('Permission Denied', 'Location is required for scan tagging.');
-        return;
-      }
+    const { status } = await Location.requestForegroundPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission Denied', 'Location is required for scan tagging.');
+      return;
+    }
 
-      const location = await Location.getCurrentPositionAsync({});
-      if (!location?.coords) {
-        Alert.alert('Location Error', 'Unable to get current position.');
-        return;
-      }
+    const location = await Location.getCurrentPositionAsync({});
+    if (!location?.coords) {
+      Alert.alert('Location Error', 'Unable to get current position.');
+      return;
+    }
 
-      const formData = new FormData();
-      const fileName = `${uuidv4()}.jpg`;
+    const formData = new FormData();
+    const fileName = `${uuidv4()}.jpg`;
 
-      formData.append('file', {
-        uri: imageUri,
-        name: fileName,
-        type: 'image/jpeg',
-      } as any);
+    formData.append('file', {
+      uri: imageUri,
+      name: fileName,
+      type: 'image/jpeg',
+    } as any);
 
-      formData.append('latitude', String(location.coords.latitude));
-      formData.append('longitude', String(location.coords.longitude));
+    formData.append('latitude', String(location.coords.latitude));
+    formData.append('longitude', String(location.coords.longitude));
+    formData.append('municipality', userProfile.municipality);
+    formData.append('barangay', userProfile.barangay);
+    formData.append('user_id', userProfile.id);
 
-      const response = await fetch('https://dc3c-49-149-99-86.ngrok-free.app/predict', {
-        method: 'POST',
-        body: formData,
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
+    console.log('📤 Sending FormData:', {
+      latitude: location.coords.latitude,
+      longitude: location.coords.longitude,
+      municipality: userProfile.municipality,
+      barangay: userProfile.barangay,
+      user_id: userProfile.id,
+      image: imageUri,
+    });
 
-      if (!response.ok) throw new Error('Prediction failed.');
-      const result = await response.json();
+    const response = await fetch('https://dc3c-49-149-99-86.ngrok-free.app/predict', {
+      method: 'POST',
+      body: formData,
+    });
 
-      await saveScanToSupabase({
-        imageUrl: imageUri,
+    if (!response.ok) throw new Error('Prediction failed.');
+    const result = await response.json();
+
+    await saveScanToSupabase({
+      imageUrl: imageUri,
+      prediction: result.prediction,
+      confidence: result.confidence,
+      latitude: location.coords.latitude,
+      longitude: location.coords.longitude,
+      name: userProfile.name,
+      municipality: userProfile.municipality,
+      barangay: userProfile.barangay,
+    });
+
+    router.replace({
+      pathname: '/result',
+      params: {
         prediction: result.prediction,
         confidence: result.confidence,
+        imageUrl: imageUri,
         latitude: location.coords.latitude,
         longitude: location.coords.longitude,
-        name: userProfile.name,
-        municipality: userProfile.municipality,
-        barangay: userProfile.barangay,
-      });
+      },
+    });
+  } catch (err: any) {
+    Alert.alert('Scan Error', err.message);
+  } finally {
+    setLoading(false);
+  }
+};
 
-      router.replace({
-        pathname: '/result',
-        params: {
-          prediction: result.prediction,
-          confidence: result.confidence,
-          imageUrl: imageUri, // Optionally swap with final hosted URL
-          latitude: location.coords.latitude,
-          longitude: location.coords.longitude,
-        },
-      });
-    } catch (err: any) {
-      Alert.alert('Scan Error', err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   return (
     <View style={styles.container}>

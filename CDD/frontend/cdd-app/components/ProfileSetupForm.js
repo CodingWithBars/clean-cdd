@@ -10,6 +10,8 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Location from 'expo-location';
+import useUserProfile from '../hooks/useUserProfile';
+
 
 const ProfileSetupForm = ({ onProfileSaved, onCancel }) => {
   const [name, setName] = useState('');
@@ -17,6 +19,12 @@ const ProfileSetupForm = ({ onProfileSaved, onCancel }) => {
   const [barangay, setBarangay] = useState('');
   const [loading, setLoading] = useState(false);
   const [locationLoading, setLocationLoading] = useState(false);
+
+  useEffect(() => {
+    if (userProfile) {
+      console.log('User Profile:', userProfile);
+    }
+  }, [userProfile]);
 
   useEffect(() => {
     fetchLocation();

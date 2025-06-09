@@ -10,7 +10,22 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import ProfileSetupForm from './ProfileSetupForm';
 import { Feather } from '@expo/vector-icons';
-import { supabase } from '@/lib/supabase';
+
+const getInitials = (name) => {
+  if (!name) return '?';
+  const parts = name.trim().split(' ');
+  const first = parts[0]?.charAt(0).toUpperCase() || '';
+  const second = parts[1]?.charAt(0).toUpperCase() || '';
+  return first + second || '?';
+};
+
+const getFullLocation = (user) => {
+  return [
+    user?.municipality,
+    user?.region || 'Davao Oriental',
+    user?.barangay,
+  ].filter(Boolean).join(', ');
+};
 
 const ProfileSection = () => {
   const [userInfo, setUserInfo] = useState(null);
@@ -24,7 +39,7 @@ const ProfileSection = () => {
         if (storedUser) {
           setUserInfo(JSON.parse(storedUser));
         } else {
-          setShowModal(true); // No user info — show profile modal
+          setShowModal(true);
         }
       } catch (error) {
         console.log('Error loading user data:', error);
@@ -40,21 +55,6 @@ const ProfileSection = () => {
     setShowModal(false);
   };
 
-  const initials = (() => {
-    const parts = userInfo?.name?.trim().split(' ') || [];
-    const first = parts[0]?.charAt(0).toUpperCase() || '';
-    const second = parts[1]?.charAt(0).toUpperCase() || '';
-    return (first + second) || '?';
-  })();
-
-  const fullLocation = [
-    userInfo?.municipality,
-    userInfo?.region || 'Davao Oriental',
-    userInfo?.barangay,
-  ]
-    .filter(Boolean)
-    .join(', ');
-
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
@@ -64,57 +64,48 @@ const ProfileSection = () => {
   }
 
   return (
-  <>
-    {userInfo && (
-      <View style={styles.userHeader}>
-        <View style={styles.placeholderAvatar}>
-          <Text style={styles.avatarInitial}>
-            {(() => {
-              const parts = userInfo.name.trim().split(' ');
-              const first = parts[0]?.charAt(0).toUpperCase() || '';
-              const second = parts[1]?.charAt(0).toUpperCase() || '';
-              return (first + second) || '?';
-            })()}
-          </Text>
+    <>
+      {userInfo && (
+        <View style={styles.userHeader}>
+          <View style={styles.placeholderAvatar}>
+            <Text style={styles.avatarInitial}>{getInitials(userInfo.name)}</Text>
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.welcomeText}>Welcome, {userInfo.name}</Text>
+            <Text style={styles.locationText}>{getFullLocation(userInfo)}</Text>
+          </View>
+          <TouchableOpacity
+            onPress={() => setShowModal(true)}
+            style={styles.iconButton}
+            accessibilityLabel="Edit Profile"
+          >
+            <Feather name="edit-2" size={20} color="#aaa" />
+          </TouchableOpacity>
         </View>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.welcomeText}>Welcome, {userInfo.name}</Text>
-          <Text style={styles.locationText}>
-            {[
-              userInfo.municipality,
-              userInfo.region || 'Davao Oriental',
-              userInfo.barangay,
-            ]
-              .filter(Boolean)
-              .join(', ')}
-          </Text>
+      )}
+
+      <Modal
+        visible={showModal}
+        animationType="slide"
+        presentationStyle="formSheet"
+      >
+        <View style={styles.modalContainer}>
+          <TouchableOpacity
+            style={styles.closeButton}
+            onPress={() => setShowModal(false)}
+            accessibilityLabel="Close Profile Setup"
+          >
+            <Feather name="x" size={24} color="#fff" />
+          </TouchableOpacity>
+          <ProfileSetupForm
+            existingData={userInfo}
+            onCancel={() => setShowModal(false)}
+            onProfileSaved={handleProfileSaved}
+          />
         </View>
-        <TouchableOpacity onPress={() => setShowModal(true)} style={styles.iconButton}>
-          <Feather name="edit-2" size={20} color="#aaa" />
-        </TouchableOpacity>
-      </View>
-    )}
-
-    {/* Modal for profile setup */}
-    <Modal
-      visible={showModal}
-      animationType="slide"
-      presentationStyle="formSheet"
-    >
-      <View style={styles.modalContainer}>
-        <TouchableOpacity style={styles.closeButton} onPress={() => setShowModal(false)}>
-          <Feather name="x" size={24} color="#fff" />
-        </TouchableOpacity>
-        <ProfileSetupForm
-          existingData={userInfo}
-          onCancel={() => setShowModal(false)}
-          onProfileSaved={handleProfileSaved}
-        />
-      </View>
-    </Modal>
-  </>
-);
-
+      </Modal>
+    </>
+  );
 };
 
 const styles = StyleSheet.create({

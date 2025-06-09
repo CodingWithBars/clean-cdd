@@ -9,6 +9,9 @@
     "deepLinking": true,
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
+    "extra": {
+      "API_BASE_URL": "https://747a-2001-4455-6f3-a00-dd29-7ce8-1951-677.ngrok-free.app"
+    },
     "ios": {
       "supportsTablet": true,
       "infoPlist": {
